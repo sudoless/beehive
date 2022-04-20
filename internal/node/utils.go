@@ -38,11 +38,11 @@ func (trie *Trie) Paths() []string {
 	return paths
 }
 
-func (trie *Trie) PathsHandlers() map[string]struct{ Handlers interface{} } {
-	m := make(map[string]struct{ Handlers interface{} })
+func (trie *Trie) PathsHandlers() map[string]struct{ Handlers any } {
+	m := make(map[string]struct{ Handlers any })
 
 	if trie.data != nil {
-		v := struct{ Handlers interface{} }{trie.data}
+		v := struct{ Handlers any }{trie.data}
 		if trie.isWildcard {
 			m[trie.path+"$"] = v
 		} else {
@@ -61,7 +61,7 @@ func (trie *Trie) PathsHandlers() map[string]struct{ Handlers interface{} } {
 	}
 
 	if trie.isWildcard {
-		m[trie.path+"$"] = struct{ Handlers interface{} }{trie.data}
+		m[trie.path+"$"] = struct{ Handlers any }{trie.data}
 	}
 
 	return m

@@ -19,7 +19,7 @@ func Parser(fields []string) be.HandlerFunc {
 	}
 
 	pool := &sync.Pool{
-		New: func() interface{} {
+		New: func() any {
 			return &Values{
 				dict:   m,
 				values: make([]string, len(fields)+1),

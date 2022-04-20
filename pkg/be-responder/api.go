@@ -7,11 +7,11 @@ import (
 )
 
 type Api struct {
-	Result  interface{} `json:"result,omitempty"`
-	Error   interface{} `json:"error,omitempty"`
-	Job     string      `json:"job"`
-	Code    int         `json:"status_code,omitempty"`
-	Success bool        `json:"success"`
+	Result  any    `json:"result,omitempty"`
+	Error   any    `json:"error,omitempty"`
+	Job     string `json:"job"`
+	Code    int    `json:"status_code,omitempty"`
+	Success bool   `json:"success"`
 
 	NoCookies
 }

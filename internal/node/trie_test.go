@@ -10,7 +10,7 @@ func testHandlerDummy() {}
 func Test_node_add_get(t *testing.T) {
 	t.Parallel()
 
-	var handlers []interface{}
+	var handlers []any
 
 	paths := []string{
 		"/foo/bar/baz",
@@ -57,7 +57,7 @@ func Test_node_add_get(t *testing.T) {
 }
 
 func Test_node_get_0alloc(t *testing.T) {
-	var handlers []interface{}
+	var handlers []any
 
 	paths := [...]string{
 		"/foo/bar/baz",
@@ -96,7 +96,7 @@ func Test_node_get_0alloc(t *testing.T) {
 }
 
 func Test_node_get_0alloc_concat(t *testing.T) {
-	var handlers []interface{}
+	var handlers []any
 
 	methods := []string{
 		"GET",
@@ -169,7 +169,7 @@ func Test_node_get_not_found(t *testing.T) {
 }
 
 func Benchmark_node_add(b *testing.B) {
-	var handlers []interface{}
+	var handlers []any
 
 	paths := [...]string{
 		"/foo/bar/baz",
@@ -203,7 +203,7 @@ func Benchmark_node_add(b *testing.B) {
 }
 
 func Benchmark_node_get(b *testing.B) {
-	var handlers []interface{}
+	var handlers []any
 
 	paths := [...]string{
 		"/foo/bar/baz",
@@ -248,8 +248,8 @@ func Test_node_add_special(t *testing.T) {
 	t.Run("split", func(t *testing.T) {
 		n := &Trie{}
 
-		_ = n.Add("/foo/bar/baz/qux", []interface{}{testHandlerDummy})
-		_ = n.Add("/foo/qux", []interface{}{testHandlerDummy})
+		_ = n.Add("/foo/bar/baz/qux", []any{testHandlerDummy})
+		_ = n.Add("/foo/qux", []any{testHandlerDummy})
 
 		if len(n.children) != 2 {
 			t.Fatalf("expected 2 children, got %d", len(n.children))
@@ -271,8 +271,8 @@ func Test_node_add_special(t *testing.T) {
 	t.Run("spawn", func(t *testing.T) {
 		n := &Trie{}
 
-		_ = n.Add("/foo/bar", []interface{}{testHandlerDummy})
-		_ = n.Add("/foo/bar/qux", []interface{}{testHandlerDummy})
+		_ = n.Add("/foo/bar", []any{testHandlerDummy})
+		_ = n.Add("/foo/bar/qux", []any{testHandlerDummy})
 	})
 }
 
@@ -304,7 +304,7 @@ func Test_node_add_duplicate(t *testing.T) {
 	}
 
 	for _, path := range paths {
-		if err := n.Add(path, []interface{}{testHandlerDummy}); err != nil {
+		if err := n.Add(path, []any{testHandlerDummy}); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -315,14 +315,14 @@ func Test_node_add_duplicate(t *testing.T) {
 	}
 
 	for k, v := range m {
-		l := len(v.Handlers.([]interface{}))
+		l := len(v.Handlers.([]any))
 		if l != 1 {
 			t.Errorf("%s: expected 1 handler, got %d", k, l)
 		}
 	}
 
 	for _, path := range paths {
-		if err := n.Add(path, []interface{}{testHandlerDummy}); err == nil {
+		if err := n.Add(path, []any{testHandlerDummy}); err == nil {
 			t.Errorf("%s: expected error, got nil", path)
 		}
 	}
@@ -355,7 +355,7 @@ func Test_node_add_wildcard(t *testing.T) {
 
 	n := &Trie{}
 	for _, path := range paths {
-		if err := n.Add(path, []interface{}{testHandlerDummy}); err != nil {
+		if err := n.Add(path, []any{testHandlerDummy}); err != nil {
 			t.Fatalf("failed adding '%s', %v", path, err)
 		}
 	}
@@ -404,7 +404,7 @@ func Test_node_add_wildcard(t *testing.T) {
 func Test_node_add_wildcard_edge_case(t *testing.T) {
 	t.Parallel()
 
-	handler := []interface{}{testHandlerDummy}
+	handler := []any{testHandlerDummy}
 
 	t.Run("/*", func(t *testing.T) {
 		n := &Trie{}

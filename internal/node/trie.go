@@ -1,14 +1,14 @@
 package node
 
 type Trie struct {
-	data       interface{}
+	data       any
 	path       string
 	children   []*Trie
 	lookup     []byte
 	isWildcard bool
 }
 
-func (trie *Trie) Add(path string, data interface{}) error {
+func (trie *Trie) Add(path string, data any) error {
 	if trie.path == "" || trie.path == path {
 		return trie.set(path, data)
 	}
@@ -95,7 +95,7 @@ func (trie *Trie) findChildIndex(b byte) int {
 	return -1
 }
 
-func (trie *Trie) set(path string, data interface{}) error {
+func (trie *Trie) set(path string, data any) error {
 	if path != "" {
 		if path[len(path)-1] == '*' {
 			trie.isWildcard = true
@@ -116,7 +116,7 @@ func (trie *Trie) set(path string, data interface{}) error {
 	return nil
 }
 
-func (trie *Trie) createNew(path string, data interface{}) error {
+func (trie *Trie) createNew(path string, data any) error {
 	child := &Trie{}
 	_ = child.set(path, data)
 
@@ -126,7 +126,7 @@ func (trie *Trie) createNew(path string, data interface{}) error {
 	return nil
 }
 
-func (trie *Trie) createSplit(commonIdx int, path string, data interface{}) {
+func (trie *Trie) createSplit(commonIdx int, path string, data any) {
 	self := &Trie{}
 	*self = *trie
 
@@ -159,6 +159,6 @@ func (trie *Trie) createSplit(commonIdx int, path string, data interface{}) {
 	}
 }
 
-func (trie *Trie) Data() interface{} {
+func (trie *Trie) Data() any {
 	return trie.data
 }

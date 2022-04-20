@@ -13,7 +13,7 @@ type contextExtraKeyT struct{}
 var contextExtraKey = &contextExtraKeyT{}
 
 var contextExtraPool = &sync.Pool{
-	New: func() interface{} {
+	New: func() any {
 		return &contextExtra{}
 	},
 }
@@ -45,7 +45,7 @@ func (c *contextExtra) Err() error {
 	return c.ctx.Err()
 }
 
-func (c *contextExtra) Value(key interface{}) interface{} {
+func (c *contextExtra) Value(key any) any {
 	if key == contextExtraKey {
 		return c
 	}
