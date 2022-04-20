@@ -5,7 +5,9 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"reflect"
+	"sync/atomic"
 	"testing"
+	"time"
 )
 
 type testResponderNoPanic struct {
@@ -422,5 +424,72 @@ func Test_ResponseWriter(t *testing.T) {
 	}
 	if h.Get("X-Bar") != "foo" {
 		t.Errorf("expected %s, got %s", "foo", h.Get("X-Bar"))
+	}
+}
+
+func TestRouter_InServer_Shutdown(t *testing.T) {
+	t.Parallel()
+
+	if testing.Short() {
+		t.Skip("skipping test in short mode")
+	}
+
+	var counter int32
+
+	router := NewDefaultRouter()
+	router.Handle("GET", "/sleep", func(ctx context.Context, r *http.Request) Responder {
+		time.Sleep(time.Millisecond * 100)
+		atomic.AddInt32(&counter, 1)
+
+		return &DefaultResponder{
+			Message: []byte("ok"),
+			Status:  http.StatusAccepted,
+		}
+	})
+
+	server := http.Server{
+		Addr:    ":11406",
+		Handler: router,
+	}
+
+	go func() {
+		if err := server.ListenAndServe(); err != nil {
+			if err != http.ErrServerClosed {
+				t.Errorf("expected %v, got %v", http.ErrServerClosed, err)
+			}
+		}
+	}()
+
+	time.Sleep(time.Millisecond * 10)
+
+	client := &http.Client{}
+	for iter := 0; iter < 100; iter++ {
+		go func() {
+			req, err := http.NewRequest(http.MethodGet, "http://:11406/sleep", nil)
+			if err != nil {
+				t.Errorf("expected no error, got %v", err)
+			}
+
+			res, err := client.Do(req)
+			if err != nil {
+				t.Errorf("expected no error, got %v", err)
+			}
+			_ = res.Body.Close()
+
+			if res.StatusCode != http.StatusAccepted {
+				t.Errorf("expected %d, got %d", http.StatusAccepted, res.StatusCode)
+			}
+		}()
+	}
+
+	time.Sleep(time.Millisecond * 10)
+
+	if err := server.Shutdown(context.Background()); err != nil {
+		t.Errorf("expected no error, got %v", err)
+	}
+
+	t.Log(counter)
+	if counter != 100 {
+		t.Errorf("expected %d, got %d", 100, counter)
 	}
 }
