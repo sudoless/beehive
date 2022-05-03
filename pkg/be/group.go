@@ -23,7 +23,7 @@ type group struct {
 // future calls to this group.
 func (g *group) Group(pathPrefix string, middleware ...HandlerFunc) Grouper {
 	if pathPrefix != "" && pathPrefix[len(pathPrefix)-1] == '*' {
-		panic("ws: router group path prefix cannot end with '*'")
+		panic("beehive: router group path prefix cannot end with '*'")
 	}
 
 	return &group{
@@ -39,11 +39,11 @@ func (g *group) Group(pathPrefix string, middleware ...HandlerFunc) Grouper {
 // Handle registers a new request handlers to the given method and path.
 func (g *group) Handle(method, path string, handlers ...HandlerFunc) Grouper {
 	if path == "" {
-		panic("ws: router path cannot be empty")
+		panic("beehive: router path cannot be empty")
 	}
 
 	if len(handlers) == 0 {
-		panic("ws: router handler is empty")
+		panic("beehive: router handler is empty")
 	}
 
 	root, ok := g.router.methods[method]
@@ -53,7 +53,7 @@ func (g *group) Handle(method, path string, handlers ...HandlerFunc) Grouper {
 	}
 
 	if err := root.Add(g.prefix+path, append(g.middleware, handlers...)); err != nil {
-		panic(fmt.Errorf("ws: router Handle '%s' '%s': %w", method, g.prefix+path, err))
+		panic(fmt.Errorf("beehive: router Handle '%s' '%s': %w", method, g.prefix+path, err))
 	}
 
 	return g

@@ -86,7 +86,7 @@ func (router *Router) DebugRoutes() []string {
 func (router *Router) respond(ctx context.Context, req *http.Request, w http.ResponseWriter, res Responder) {
 	if res == nil {
 		w.WriteHeader(http.StatusGone)
-		_, _ = w.Write([]byte("ws: router responder is nil"))
+		_, _ = w.Write([]byte("beehive: router responder is nil"))
 		return
 	}
 
