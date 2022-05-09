@@ -55,3 +55,8 @@ func (r *DefaultResponder) Headers(_ context.Context, _ *http.Request, h http.He
 func (r *DefaultResponder) Cookies(_ context.Context, _ *http.Request) []*http.Cookie {
 	return nil
 }
+
+var defaultPanicResponder = &DefaultResponder{
+	Message: []byte("recovered from panic"),
+	Status:  http.StatusInternalServerError,
+}

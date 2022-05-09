@@ -15,9 +15,6 @@ type Router struct {
 	// WhenNoResponse is called when all handlers in a chain are executed and a nil Responder is returned.
 	WhenNoResponse Responder
 
-	// WhenRecovering can be used to catch panics.
-	WhenRecovering Responder
-
 	// WhenNotFound is called when the route does not match or the matched route has 0 handlers.
 	WhenNotFound Responder
 
@@ -30,6 +27,9 @@ type Router struct {
 	// Context is called to obtain a context for the request. By default, if a nil context.Context is returned then
 	// the http.Request context is used.
 	Context func(r *http.Request) context.Context
+
+	// Recover is called when a panic occurs inside ServeHTTP.
+	Recover func(ctx context.Context, r *http.Request, panicErr any) Responder
 
 	methods map[string]*node.Trie
 	group
@@ -113,7 +113,11 @@ func (router *Router) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	defer func() {
 		if err := recover(); err != nil {
-			router.respond(ctx, r, w, router.WhenRecovering)
+			if router.Recover != nil {
+				router.respond(ctx, r, w, router.Recover(ctx, r, err))
+			} else {
+				router.respond(ctx, r, w, defaultPanicResponder)
+			}
 		}
 	}()
 

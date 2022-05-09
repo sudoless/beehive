@@ -10,25 +10,6 @@ import (
 	"time"
 )
 
-type testResponderNoPanic struct {
-	t *testing.T
-}
-
-func (t testResponderNoPanic) Headers(_ context.Context, _ *http.Request, _ http.Header) {}
-
-func (t testResponderNoPanic) StatusCode(_ context.Context, _ *http.Request) int {
-	return 400
-}
-
-func (t testResponderNoPanic) Body(_ context.Context, req *http.Request) []byte {
-	t.t.Errorf("unexpected panic: %v", req)
-	return nil
-}
-
-func (t testResponderNoPanic) Cookies(_ context.Context, _ *http.Request) []*http.Cookie {
-	return nil
-}
-
 func TestRouter_request_next(t *testing.T) {
 	t.Parallel()
 
@@ -153,7 +134,6 @@ func TestRouter_default(t *testing.T) {
 
 	t.Run("no handlers", func(t *testing.T) {
 		router := NewDefaultRouter()
-		router.WhenRecovering = testResponderNoPanic{t: t}
 		w := httptest.NewRecorder()
 		r := httptest.NewRequest("GET", "/foo/bar", nil)
 		router.ServeHTTP(w, r)
@@ -165,7 +145,6 @@ func TestRouter_default(t *testing.T) {
 	t.Run("empty router", func(t *testing.T) {
 		router := &Router{}
 		router.Context = DefaultContext
-		router.WhenRecovering = testResponderNoPanic{t: t}
 		w := httptest.NewRecorder()
 		r := httptest.NewRequest("GET", "/foo/bar", nil)
 		router.ServeHTTP(w, r)
@@ -181,7 +160,6 @@ func TestRouter_context(t *testing.T) {
 
 	t.Run("nil", func(t *testing.T) {
 		router := NewDefaultRouter()
-		router.WhenRecovering = testResponderNoPanic{t: t}
 		router.Context = func(r *http.Request) context.Context {
 			return nil
 		}
@@ -206,7 +184,6 @@ func TestRouter_context(t *testing.T) {
 	})
 	t.Run("closed", func(t *testing.T) {
 		router := NewDefaultRouter()
-		router.WhenRecovering = testResponderNoPanic{t: t}
 		router.WhenContextDone = &DefaultResponder{
 			Message: []byte("ok"),
 			Status:  http.StatusTeapot,
@@ -233,7 +210,7 @@ func TestRouter_context(t *testing.T) {
 func TestRouter_recovery(t *testing.T) {
 	t.Parallel()
 
-	t.Run("no WhenRecovering", func(t *testing.T) {
+	t.Run("default Recover", func(t *testing.T) {
 		defer func() {
 			if rec := recover(); rec != nil {
 				t.Fatal("uncaught panic")
@@ -249,11 +226,15 @@ func TestRouter_recovery(t *testing.T) {
 		r := httptest.NewRequest("GET", "/foo/bar", nil)
 		router.ServeHTTP(w, r)
 
-		if w.Code != http.StatusGone {
-			t.Errorf("expected %d, got %d", http.StatusGone, w.Code)
+		if w.Code != http.StatusInternalServerError {
+			t.Errorf("expected %d, got %d", http.StatusInternalServerError, w.Code)
+		}
+
+		if w.Body.String() != "recovered from panic" {
+			t.Errorf("expected %q, got %q", "recovered from panic", w.Body.String())
 		}
 	})
-	t.Run("WhenRecovering", func(t *testing.T) {
+	t.Run("defined Recover", func(t *testing.T) {
 		defer func() {
 			if rec := recover(); rec != nil {
 				t.Fatal("uncaught panic")
@@ -261,9 +242,15 @@ func TestRouter_recovery(t *testing.T) {
 		}()
 
 		router := NewDefaultRouter()
-		router.WhenRecovering = &DefaultResponder{
-			Message: nil,
-			Status:  http.StatusTeapot,
+		router.Recover = func(ctx context.Context, r *http.Request, panicErr any) Responder {
+			if panicErr != "on purpose" {
+				t.Fatal("expected panicErr to be on purpose")
+			}
+
+			return &DefaultResponder{
+				Message: nil,
+				Status:  http.StatusTeapot,
+			}
 		}
 		router.Handle("GET", "/foo/bar", func(_ context.Context, _ *http.Request) Responder {
 			panic("on purpose")
