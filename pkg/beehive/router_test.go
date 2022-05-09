@@ -285,9 +285,7 @@ func TestRouter_recovery(t *testing.T) {
 		r := httptest.NewRequest("GET", "/foo/bar", nil)
 		router.ServeHTTP(w, r)
 
-		if w.Code != http.StatusTeapot {
-			t.Errorf("expected %d, got %d", http.StatusTeapot, w.Code)
-		}
+		t.Fatal("should not reach here")
 	})
 }
 
