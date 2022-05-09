@@ -264,6 +264,31 @@ func TestRouter_recovery(t *testing.T) {
 			t.Errorf("expected %d, got %d", http.StatusTeapot, w.Code)
 		}
 	})
+	t.Run("defined Recover panic", func(t *testing.T) {
+		defer func() {
+			if rec := recover(); rec != nil {
+				if rec != "double panic on purpose" {
+					t.Fatal("expected panic to be double panic on purpose")
+				}
+			}
+		}()
+
+		router := NewDefaultRouter()
+		router.Recover = func(ctx context.Context, r *http.Request, panicErr any) Responder {
+			panic("double panic " + panicErr.(string))
+		}
+		router.Handle("GET", "/foo/bar", func(_ context.Context, _ *http.Request) Responder {
+			panic("on purpose")
+		})
+
+		w := httptest.NewRecorder()
+		r := httptest.NewRequest("GET", "/foo/bar", nil)
+		router.ServeHTTP(w, r)
+
+		if w.Code != http.StatusTeapot {
+			t.Errorf("expected %d, got %d", http.StatusTeapot, w.Code)
+		}
+	})
 }
 
 func TestRouter_Handle(t *testing.T) {
