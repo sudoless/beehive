@@ -3,7 +3,6 @@ package beehive
 import (
 	"context"
 	"net/http"
-	"strconv"
 
 	"github.com/sudoless/beehive/internal/node"
 )
@@ -12,9 +11,6 @@ import (
 // for applying middlewares. The Router has 5 Responder interfaces for certain core conditions which are documented
 // on said interfaces.
 type Router struct {
-	// WhenNoResponse is called when all handlers in a chain are executed and a nil Responder is returned.
-	WhenNoResponse Responder
-
 	// WhenNotFound is called when the route does not match or the matched route has 0 handlers.
 	WhenNotFound Responder
 
@@ -58,7 +54,6 @@ func NewDefaultRouter() *Router {
 	router.WhenNotFound = &DefaultResponder{Status: http.StatusNotFound, Message: []byte("not found")}
 	router.WhenMethodNotAllowed = &DefaultResponder{Status: http.StatusMethodNotAllowed, Message: []byte("method not allowed")}
 	router.WhenContextDone = &DefaultResponder{Status: http.StatusGatewayTimeout, Message: []byte("context finished, canceled or timed out")}
-	router.WhenNoResponse = &DefaultResponder{Status: http.StatusNoContent, Message: nil}
 
 	return router
 }
@@ -70,8 +65,6 @@ func DefaultContext(req *http.Request) context.Context {
 
 func (router *Router) respond(ctx context.Context, req *http.Request, w http.ResponseWriter, res Responder) {
 	if res == nil {
-		w.WriteHeader(http.StatusGone)
-		_, _ = w.Write([]byte("beehive: router responder is nil"))
 		return
 	}
 
@@ -121,7 +114,7 @@ func (router *Router) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	handlers, ok := n.Data().([]HandlerFunc)
 	if !ok || len(handlers) == 0 {
-		router.respond(ctx, r, w, router.WhenNoResponse)
+		router.respond(ctx, r, w, router.WhenNotFound)
 		return
 	}
 
@@ -135,11 +128,7 @@ func (router *Router) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 	defer contextExtraPool.Put(extra)
 
-	if res := router.next(extra, extra, r); res != nil {
-		router.respond(ctx, r, w, res)
-	} else {
-		router.respond(ctx, r, w, router.WhenNoResponse)
-	}
+	router.respond(ctx, r, w, router.next(extra, extra, r))
 }
 
 func (router *Router) next(ctx context.Context, extra *contextExtra, r *http.Request) Responder {

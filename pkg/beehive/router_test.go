@@ -1,7 +1,9 @@
 package beehive
 
 import (
+	"bytes"
 	"context"
+	"log"
 	"net/http"
 	"net/http/httptest"
 	"reflect"
@@ -139,7 +141,7 @@ func TestRouter_default(t *testing.T) {
 		router.ServeHTTP(w, r)
 
 		if w.Code != http.StatusMethodNotAllowed {
-			t.Errorf("expected %d, got %d", http.StatusNotFound, w.Code)
+			t.Errorf("expected %d, got %d", http.StatusMethodNotAllowed, w.Code)
 		}
 	})
 	t.Run("empty router", func(t *testing.T) {
@@ -149,8 +151,9 @@ func TestRouter_default(t *testing.T) {
 		r := httptest.NewRequest("GET", "/foo/bar", nil)
 		router.ServeHTTP(w, r)
 
-		if w.Code != http.StatusGone {
-			t.Errorf("expected %d, got %d", http.StatusNotFound, w.Code)
+		if w.Code != http.StatusOK {
+			t.Errorf("expected %d, got %d", http.StatusOK, w.Code)
+			t.Logf("response_body=%q", w.Body.String())
 		}
 	})
 }
@@ -502,4 +505,39 @@ func TestRouter_InServer_Shutdown(t *testing.T) {
 	if counter != 100 {
 		t.Errorf("expected %d, got %d", 100, counter)
 	}
+}
+
+func TestRouter_Superfluous(t *testing.T) {
+	t.Parallel()
+
+	t.Run("new router", func(t *testing.T) {
+		buffer := bytes.NewBuffer(nil)
+		log.SetOutput(buffer)
+
+		router := NewRouter()
+
+		hijackingHandler := func(ctx context.Context, r *http.Request) Responder {
+			w := ResponseWriter(ctx)
+
+			w.WriteHeader(http.StatusHTTPVersionNotSupported)
+			_, _ = w.Write([]byte("hijacker"))
+
+			return nil
+		}
+
+		router.Handle("GET", "/foo", hijackingHandler)
+
+		w := httptest.NewRecorder()
+		r := httptest.NewRequest(http.MethodGet, "/foo", nil)
+		router.ServeHTTP(w, r)
+
+		if w.Code != http.StatusHTTPVersionNotSupported {
+			t.Errorf("expected %d, got %d", http.StatusHTTPVersionNotSupported, w.Code)
+		}
+		if w.Body.String() != "hijacker" {
+			t.Errorf("expected %s, got %s", "hijacker", w.Body.String())
+		}
+
+		t.Log(buffer.String())
+	})
 }
