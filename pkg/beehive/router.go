@@ -68,21 +68,6 @@ func DefaultContext(req *http.Request) context.Context {
 	return req.Context()
 }
 
-// DebugRoutes is a helper function for debugging the router. It may be removed in the future.
-func (router *Router) DebugRoutes() []string {
-	routes := make([]string, 0)
-	for method, trie := range router.methods {
-		paths := trie.PathsHandlers()
-		for path, data := range paths {
-			handlers := data.Handlers.([]HandlerFunc)
-
-			routes = append(routes, method+" "+path+" "+strconv.Itoa(len(handlers)))
-		}
-	}
-
-	return routes
-}
-
 func (router *Router) respond(ctx context.Context, req *http.Request, w http.ResponseWriter, res Responder) {
 	if res == nil {
 		w.WriteHeader(http.StatusGone)
