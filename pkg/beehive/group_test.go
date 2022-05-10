@@ -179,3 +179,57 @@ func TestRouter_Group_panic(t *testing.T) {
 		_ = router.Group("/api/*")
 	})
 }
+
+func TestGroup_Handle_emptyPath(t *testing.T) {
+	t.Parallel()
+
+	router := NewDefaultRouter()
+	g := router.Group("/has/prefix")
+	g.Handle("GET", "", func(_ context.Context, _ *http.Request) Responder {
+		return &DefaultResponder{
+			Message: []byte("empty group path 1"),
+			Status:  200,
+		}
+	})
+	g.Handle("GET", "/", func(_ context.Context, _ *http.Request) Responder {
+		return &DefaultResponder{
+			Message: []byte("empty group path 2"),
+			Status:  200,
+		}
+	})
+
+	w := httptest.NewRecorder()
+	r := httptest.NewRequest("GET", "/has/prefix", nil)
+	router.ServeHTTP(w, r)
+	if w.Body.String() != "empty group path 1" {
+		t.Errorf("expected %s, got %s", "empty group path 1", w.Body.String())
+	}
+
+	w = httptest.NewRecorder()
+	r = httptest.NewRequest("GET", "/has/prefix/", nil)
+	router.ServeHTTP(w, r)
+	if w.Body.String() != "empty group path 2" {
+		t.Errorf("expected %s, got %s", "empty group path 2", w.Body.String())
+	}
+}
+
+func TestGroup_Handle_emptyPath_noPrefix(t *testing.T) {
+	t.Parallel()
+
+	defer func() {
+		if r := recover(); r == nil {
+			t.Error("expected panic")
+		}
+	}()
+
+	router := NewDefaultRouter()
+	g := router.Group("")
+	g.Handle("GET", "", func(_ context.Context, _ *http.Request) Responder {
+		return &DefaultResponder{
+			Message: []byte("empty group path 1"),
+			Status:  200,
+		}
+	})
+
+	t.Fatalf("expected panic")
+}

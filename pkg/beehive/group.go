@@ -38,7 +38,7 @@ func (g *group) Group(pathPrefix string, middleware ...HandlerFunc) Grouper {
 
 // Handle registers a new request handlers to the given method and path.
 func (g *group) Handle(method, path string, handlers ...HandlerFunc) Grouper {
-	if path == "" {
+	if g.prefix == "" && path == "" {
 		panic("beehive: router path cannot be empty")
 	}
 
