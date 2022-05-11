@@ -32,23 +32,23 @@ import (
 	"strings"
 	"time"
 
-	"github.com/sudoless/beehive/pkg/be"
-	beCors "github.com/sudoless/beehive/pkg/be-cors"
+	"github.com/sudoless/beehive/pkg/beehive"
+	beCors "github.com/sudoless/beehive/pkg/beehive-cors"
 )
 
-func handleEcho(_ context.Context, r *http.Request) be.Responder {
+func handleEcho(_ context.Context, r *http.Request) beehive.Responder {
 	path := r.URL.Path
 
-	return &be.DefaultResponder{
+	return &beehive.DefaultResponder{
 		Message: []byte(r.Method + " " + path),
 		Status:  http.StatusOK,
 	}
 }
 
-func handleLog(ctx context.Context, r *http.Request) be.Responder {
+func handleLog(ctx context.Context, r *http.Request) beehive.Responder {
 	start := time.Now()
 
-	res := be.Next(ctx, r)
+	res := beehive.Next(ctx, r)
 	if res == nil {
 		return nil
 	}
