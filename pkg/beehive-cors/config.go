@@ -1,7 +1,6 @@
 package beehive_cors
 
 import (
-	"context"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -67,8 +66,8 @@ func (c *Config) HandlerFunc(preFlight bool) beehive.HandlerFunc {
 		headerAllowCredentials = []string{"true"}
 	}
 
-	return func(ctx context.Context, r *http.Request) beehive.Responder {
-		origin := r.Header.Get("Origin")
+	return func(ctx *beehive.Context) beehive.Responder {
+		origin := ctx.Request.Header.Get("Origin")
 		if origin == "" {
 			return nil
 		}
@@ -76,7 +75,7 @@ func (c *Config) HandlerFunc(preFlight bool) beehive.HandlerFunc {
 			return responderForbidden
 		}
 
-		w := beehive.ResponseWriter(ctx)
+		w := ctx.ResponseWriter
 		h := w.Header()
 
 		h.Add("Vary", "Origin")

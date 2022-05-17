@@ -8,8 +8,7 @@ import (
 )
 
 // Router is the core of the beehive package. It implements the Grouper interface for creating route groups or
-// for applying middlewares. The Router has 5 Responder interfaces for certain core conditions which are documented
-// on said interfaces.
+// for applying middlewares.
 type Router struct {
 	// WhenNotFound is called when the route does not match or the matched route has 0 handlers.
 	WhenNotFound Responder
@@ -25,13 +24,13 @@ type Router struct {
 	Context func(r *http.Request) context.Context
 
 	// Recover is called when a panic occurs inside ServeHTTP.
-	Recover func(ctx context.Context, r *http.Request, panicErr any) Responder
+	Recover func(ctx *Context, panicErr any) Responder
 
 	methods map[string]*node.Trie
 	group
 }
 
-// NewRouter returns an empty router with no implemented When... interfaces and the DefaultContext function.
+// NewRouter returns an empty router with only the DefaultContext function.
 func NewRouter() *Router {
 	router := &Router{
 		methods: make(map[string]*node.Trie),
@@ -63,91 +62,99 @@ func DefaultContext(req *http.Request) context.Context {
 	return req.Context()
 }
 
-func (router *Router) respond(ctx context.Context, req *http.Request, w http.ResponseWriter, res Responder) {
-	if res == nil {
-		return
+func (router *Router) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	c := router.Context(r)
+	if c == nil {
+		c = r.Context()
 	}
 
-	body := res.Body(ctx, req)
-
-	res.Headers(ctx, req, w.Header())
-
-	for _, cookie := range res.Cookies(ctx, req) {
-		http.SetCookie(w, cookie)
+	ctx := contextPool.Get().(*Context)
+	*ctx = Context{
+		ResponseWriter: w,
+		Request:        r,
+		handlersIdx:    0,
+		Context:        c,
+		router:         router,
 	}
-
-	w.WriteHeader(res.StatusCode(ctx, req))
-
-	if body != nil {
-		_, _ = w.Write(body)
-	}
+	router.serveHTTP(ctx)
+	contextPool.Put(ctx)
 }
 
-func (router *Router) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	ctx := router.Context(r)
-	if ctx == nil {
-		ctx = r.Context()
-	}
+func (router *Router) serveHTTP(ctx *Context) {
+	r := ctx.Request
 
 	defer func() {
 		if err := recover(); err != nil {
 			if router.Recover != nil {
-				router.respond(ctx, r, w, router.Recover(ctx, r, err))
+				router.respond(ctx, router.Recover(ctx, err))
 			} else {
-				router.respond(ctx, r, w, defaultPanicResponder)
+				router.respond(ctx, defaultPanicResponder)
 			}
 		}
 	}()
 
 	root := router.methods[r.Method]
 	if root == nil {
-		router.respond(ctx, r, w, router.WhenMethodNotAllowed)
+		router.respond(ctx, router.WhenMethodNotAllowed)
 		return
 	}
 
 	path := r.URL.Path
 	n, err := root.Get(path)
 	if err != nil {
-		router.respond(ctx, r, w, router.WhenNotFound)
+		router.respond(ctx, router.WhenNotFound)
 		return
 	}
 
 	handlers, ok := n.Data().([]HandlerFunc)
 	if !ok || len(handlers) == 0 {
-		router.respond(ctx, r, w, router.WhenNotFound)
+		router.respond(ctx, router.WhenNotFound)
+		return
+	}
+	ctx.handlers = handlers
+
+	router.respond(ctx, router.next(ctx))
+}
+
+func (router *Router) respond(ctx *Context, res Responder) {
+	if res == nil {
 		return
 	}
 
-	extra := contextExtraPool.Get().(*contextExtra)
-	*extra = contextExtra{
-		w:           w,
-		handlers:    handlers,
-		handlersIdx: 0,
-		ctx:         ctx,
-		router:      router,
-	}
-	defer contextExtraPool.Put(extra)
+	w := ctx.ResponseWriter
 
-	router.respond(ctx, r, w, router.next(extra, extra, r))
+	body := res.Body(ctx)
+
+	res.Headers(ctx)
+
+	for _, cookie := range res.Cookies(ctx) {
+		http.SetCookie(w, cookie)
+	}
+
+	w.WriteHeader(res.StatusCode(ctx))
+
+	if body != nil {
+		_, _ = w.Write(body)
+	}
 }
 
-func (router *Router) next(ctx context.Context, extra *contextExtra, r *http.Request) Responder {
+func (router *Router) next(ctx *Context) Responder {
 	for {
 		select {
-		case <-extra.ctx.Done():
-			router.respond(ctx, r, extra.w, router.WhenContextDone)
+		case <-ctx.Context.Done():
+			router.respond(ctx, router.WhenContextDone)
 			return nil
 		default:
-			if extra.handlersIdx >= len(extra.handlers) {
+			if ctx.handlersIdx >= len(ctx.handlers) {
 				return nil
 			}
 
-			res := extra.handlers[extra.handlersIdx](ctx, r)
+			res := ctx.handlers[ctx.handlersIdx](ctx)
 			if res != nil {
 				return res
 			}
 
-			extra.handlersIdx++
+			ctx.handlersIdx++
 		}
 	}
 }

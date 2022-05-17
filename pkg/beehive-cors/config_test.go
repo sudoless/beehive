@@ -1,7 +1,6 @@
 package beehive_cors
 
 import (
-	"context"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -28,7 +27,7 @@ func TestCORS(t *testing.T) {
 
 	router := beehive.NewDefaultRouter()
 	corsGroup := config.Apply(router)
-	corsGroup.Handle("GET", "/foo/bar", func(_ context.Context, _ *http.Request) beehive.Responder {
+	corsGroup.Handle("GET", "/foo/bar", func(_ *beehive.Context) beehive.Responder {
 		return ok
 	})
 

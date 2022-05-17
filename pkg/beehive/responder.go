@@ -1,7 +1,6 @@
 package beehive
 
 import (
-	"context"
 	"net/http"
 )
 
@@ -10,10 +9,10 @@ import (
 // including error responses, file responses, or custom responses. Utility Responder implementations are provided
 // in the be-responder package.
 type Responder interface {
-	StatusCode(ctx context.Context, r *http.Request) int
-	Body(ctx context.Context, r *http.Request) []byte
-	Headers(ctx context.Context, r *http.Request, h http.Header)
-	Cookies(ctx context.Context, r *http.Request) []*http.Cookie
+	StatusCode(ctx *Context) int
+	Body(ctx *Context) []byte
+	Headers(ctx *Context)
+	Cookies(ctx *Context) []*http.Cookie
 }
 
 // DefaultResponder is the default implementation of Responder. It returns a defined set of headers, the
@@ -25,12 +24,12 @@ type DefaultResponder struct {
 }
 
 // StatusCode returns the status code for the responder.
-func (r *DefaultResponder) StatusCode(_ context.Context, _ *http.Request) int {
+func (r *DefaultResponder) StatusCode(_ *Context) int {
 	return r.Status
 }
 
 // Body returns the message body.
-func (r *DefaultResponder) Body(_ context.Context, _ *http.Request) []byte {
+func (r *DefaultResponder) Body(_ *Context) []byte {
 	return r.Message
 }
 
@@ -43,7 +42,9 @@ var (
 )
 
 // Headers on the DefaultResponder sets some fundamental, strict headers.
-func (r *DefaultResponder) Headers(_ context.Context, _ *http.Request, h http.Header) {
+func (r *DefaultResponder) Headers(ctx *Context) {
+	h := ctx.Request.Header
+
 	h["Content-Type"] = defaultHeaderContentType
 	h["X-Content-Type-Options"] = defaultHeaderContentTypeOptions
 	h["X-Frame-Options"] = defaultHeaderFrameOptions
@@ -52,7 +53,7 @@ func (r *DefaultResponder) Headers(_ context.Context, _ *http.Request, h http.He
 }
 
 // Cookies on the DefaultResponder returns no cookies.
-func (r *DefaultResponder) Cookies(_ context.Context, _ *http.Request) []*http.Cookie {
+func (r *DefaultResponder) Cookies(_ *Context) []*http.Cookie {
 	return nil
 }
 

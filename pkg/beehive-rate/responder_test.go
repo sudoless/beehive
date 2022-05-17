@@ -1,7 +1,6 @@
 package beehive_rate
 
 import (
-	"context"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -13,7 +12,7 @@ func Test_Responder(t *testing.T) {
 	t.Parallel()
 
 	router := beehive.NewDefaultRouter()
-	router.Handle("GET", "/foo/bar", func(_ context.Context, _ *http.Request) beehive.Responder {
+	router.Handle("GET", "/foo/bar", func(_ *beehive.Context) beehive.Responder {
 		return defaultResponder
 	})
 

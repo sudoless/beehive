@@ -1,7 +1,6 @@
 package beehive_rate
 
 import (
-	"context"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -39,7 +38,7 @@ func TestRateLimit(t *testing.T) {
 	t.Parallel()
 
 	counter := 0
-	handler := func(ctx context.Context, req *http.Request) beehive.Responder {
+	handler := func(ctx *beehive.Context) beehive.Responder {
 		counter++
 
 		return &beehive.DefaultResponder{
@@ -120,7 +119,7 @@ func TestRateLimit_noKey(t *testing.T) {
 	t.Parallel()
 
 	counter := 0
-	handler := func(ctx context.Context, req *http.Request) beehive.Responder {
+	handler := func(ctx *beehive.Context) beehive.Responder {
 		counter++
 
 		return &beehive.DefaultResponder{

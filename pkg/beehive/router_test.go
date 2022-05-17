@@ -16,37 +16,37 @@ func TestRouter_request_next(t *testing.T) {
 	t.Parallel()
 
 	handled := make([]string, 0)
-	testHandler1 := func(ctx context.Context, req *http.Request) Responder {
+	testHandler1 := func(ctx *Context) Responder {
 		handled = append(handled, "1 pre")
-		res := Next(ctx, req)
+		res := ctx.Next()
 		handled = append(handled, "1 post")
 
-		if finalRes := Next(ctx, req); finalRes != nil {
+		if finalRes := ctx.Next(); finalRes != nil {
 			t.Errorf("expected nil, got %v", finalRes)
 		}
 
 		return res
 	}
-	testHandler2 := func(ctx context.Context, req *http.Request) Responder {
+	testHandler2 := func(ctx *Context) Responder {
 		handled = append(handled, "2 pre")
-		if res := Next(ctx, req); res != nil {
+		if res := ctx.Next(); res != nil {
 			return res
 		}
 		handled = append(handled, "2 post")
 
 		return nil
 	}
-	testHandler3 := func(ctx context.Context, req *http.Request) Responder {
+	testHandler3 := func(ctx *Context) Responder {
 		handled = append(handled, "3 pre")
-		res := Next(ctx, req)
+		res := ctx.Next()
 		handled = append(handled, "3 post")
 
 		return res
 	}
-	testHandler4 := func(ctx context.Context, req *http.Request) Responder {
+	testHandler4 := func(ctx *Context) Responder {
 		handled = append(handled, "4 do")
 
-		if res := Next(ctx, req); res != nil {
+		if res := ctx.Next(); res != nil {
 			t.Errorf("expected nil, got %v", res)
 		}
 
@@ -89,7 +89,7 @@ func TestRouter_HandleAny(t *testing.T) {
 	router := NewDefaultRouter()
 
 	counter := 0
-	router.HandleAny(methods, "/foo/bar", func(ctx context.Context, req *http.Request) Responder {
+	router.HandleAny(methods, "/foo/bar", func(ctx *Context) Responder {
 		counter++
 		return &DefaultResponder{
 			Status: http.StatusOK,
@@ -168,7 +168,7 @@ func TestRouter_context(t *testing.T) {
 		}
 
 		ok := false
-		router.Handle(http.MethodGet, "/foo/bar", func(ctx context.Context, _ *http.Request) Responder {
+		router.Handle(http.MethodGet, "/foo/bar", func(ctx *Context) Responder {
 			if ctx == nil {
 				t.Fatal("expected context, got nil")
 			}
@@ -196,7 +196,7 @@ func TestRouter_context(t *testing.T) {
 			cc()
 			return ctx
 		}
-		router.Handle("GET", "/foo/bar", func(ctx context.Context, request *http.Request) Responder {
+		router.Handle("GET", "/foo/bar", func(ctx *Context) Responder {
 			return nil
 		})
 
@@ -221,7 +221,7 @@ func TestRouter_recovery(t *testing.T) {
 		}()
 
 		router := NewDefaultRouter()
-		router.Handle("GET", "/foo/bar", func(_ context.Context, _ *http.Request) Responder {
+		router.Handle("GET", "/foo/bar", func(_ *Context) Responder {
 			panic("on purpose")
 		})
 
@@ -245,7 +245,7 @@ func TestRouter_recovery(t *testing.T) {
 		}()
 
 		router := NewDefaultRouter()
-		router.Recover = func(ctx context.Context, r *http.Request, panicErr any) Responder {
+		router.Recover = func(ctx *Context, panicErr any) Responder {
 			if panicErr != "on purpose" {
 				t.Fatal("expected panicErr to be on purpose")
 			}
@@ -255,7 +255,7 @@ func TestRouter_recovery(t *testing.T) {
 				Status:  http.StatusTeapot,
 			}
 		}
-		router.Handle("GET", "/foo/bar", func(_ context.Context, _ *http.Request) Responder {
+		router.Handle("GET", "/foo/bar", func(_ *Context) Responder {
 			panic("on purpose")
 		})
 
@@ -277,10 +277,10 @@ func TestRouter_recovery(t *testing.T) {
 		}()
 
 		router := NewDefaultRouter()
-		router.Recover = func(ctx context.Context, r *http.Request, panicErr any) Responder {
+		router.Recover = func(ctx *Context, panicErr any) Responder {
 			panic("double panic " + panicErr.(string))
 		}
-		router.Handle("GET", "/foo/bar", func(_ context.Context, _ *http.Request) Responder {
+		router.Handle("GET", "/foo/bar", func(_ *Context) Responder {
 			panic("on purpose")
 		})
 
@@ -322,7 +322,7 @@ func TestRouter_Handle(t *testing.T) {
 			}
 		}()
 
-		testHandlerDummy := func(_ context.Context, _ *http.Request) Responder {
+		testHandlerDummy := func(_ *Context) Responder {
 			return nil
 		}
 
@@ -336,24 +336,24 @@ type cookieResponder struct {
 	cookies []*http.Cookie
 }
 
-func (c *cookieResponder) StatusCode(_ context.Context, _ *http.Request) int {
+func (c *cookieResponder) StatusCode(_ *Context) int {
 	return http.StatusOK
 }
 
-func (c *cookieResponder) Body(_ context.Context, _ *http.Request) []byte {
+func (c *cookieResponder) Body(_ *Context) []byte {
 	return nil
 }
 
-func (c *cookieResponder) Headers(_ context.Context, _ *http.Request, _ http.Header) {}
+func (c *cookieResponder) Headers(_ *Context) {}
 
-func (c *cookieResponder) Cookies(_ context.Context, _ *http.Request) []*http.Cookie {
+func (c *cookieResponder) Cookies(_ *Context) []*http.Cookie {
 	return c.cookies
 }
 
 func TestRouter_respond_cookies(t *testing.T) {
 	t.Parallel()
 
-	handler := func(ctx context.Context, r *http.Request) Responder {
+	handler := func(ctx *Context) Responder {
 		return &cookieResponder{
 			cookies: []*http.Cookie{
 				{
@@ -398,8 +398,8 @@ func TestRouter_respond_cookies(t *testing.T) {
 func Test_ResponseWriter(t *testing.T) {
 	t.Parallel()
 
-	middleware := func(ctx context.Context, _ *http.Request) Responder {
-		w := ResponseWriter(ctx)
+	middleware := func(ctx *Context) Responder {
+		w := ctx.ResponseWriter
 		if w == nil {
 			t.Fatalf("expected response writer, got nil")
 		}
@@ -412,7 +412,7 @@ func Test_ResponseWriter(t *testing.T) {
 	}
 
 	router := NewDefaultRouter()
-	router.Handle("GET", "/foo", middleware, func(_ context.Context, _ *http.Request) Responder {
+	router.Handle("GET", "/foo", middleware, func(_ *Context) Responder {
 		return &DefaultResponder{
 			Message: []byte("ok"),
 			Status:  http.StatusOK,
@@ -450,7 +450,7 @@ func TestRouter_InServer_Shutdown(t *testing.T) {
 	var counter int32
 
 	router := NewDefaultRouter()
-	router.Handle("GET", "/sleep", func(ctx context.Context, r *http.Request) Responder {
+	router.Handle("GET", "/sleep", func(ctx *Context) Responder {
 		time.Sleep(time.Millisecond * 100)
 		atomic.AddInt32(&counter, 1)
 
@@ -516,8 +516,8 @@ func TestRouter_Superfluous(t *testing.T) {
 
 		router := NewRouter()
 
-		hijackingHandler := func(ctx context.Context, r *http.Request) Responder {
-			w := ResponseWriter(ctx)
+		hijackingHandler := func(ctx *Context) Responder {
+			w := ctx.ResponseWriter
 
 			w.WriteHeader(http.StatusHTTPVersionNotSupported)
 			_, _ = w.Write([]byte("hijacker"))

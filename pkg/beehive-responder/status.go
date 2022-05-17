@@ -1,8 +1,7 @@
 package beehive_responder
 
 import (
-	"context"
-	"net/http"
+	"github.com/sudoless/beehive/pkg/beehive"
 )
 
 // Status is a helper beehive.Responder that only implements StatusCode method and returns the given Code.
@@ -14,6 +13,6 @@ type Status struct {
 	Code int
 }
 
-func (s *Status) StatusCode(_ context.Context, _ *http.Request) int {
+func (s *Status) StatusCode(_ *beehive.Context) int {
 	return s.Code
 }

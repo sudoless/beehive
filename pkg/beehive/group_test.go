@@ -1,7 +1,6 @@
 package beehive
 
 import (
-	"context"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -12,7 +11,7 @@ func TestRouter_Group(t *testing.T) {
 	t.Parallel()
 
 	h := func(msg string) HandlerFunc {
-		return func(_ context.Context, _ *http.Request) Responder {
+		return func(_ *Context) Responder {
 			return &DefaultResponder{
 				Message: []byte(msg),
 				Status:  http.StatusOK,
@@ -20,8 +19,8 @@ func TestRouter_Group(t *testing.T) {
 		}
 	}
 
-	m := func(_ context.Context, req *http.Request) Responder {
-		if req.Header.Get("X-Test-Auth") != "yes" {
+	m := func(ctx *Context) Responder {
+		if ctx.Request.Header.Get("X-Test-Auth") != "yes" {
 			return &DefaultResponder{
 				Message: []byte("unauthorized"),
 				Status:  http.StatusUnauthorized,
@@ -133,7 +132,7 @@ func TestRouter_Group(t *testing.T) {
 	})
 	t.Run("empty", func(t *testing.T) {
 		counter := 0
-		middleware := func(_ context.Context, _ *http.Request) Responder {
+		middleware := func(_ *Context) Responder {
 			counter++
 			return nil
 		}
@@ -143,7 +142,7 @@ func TestRouter_Group(t *testing.T) {
 		{
 			baseGroup.Handle("GET", "/foo/bar", h("a"))
 			baseGroup.Handle("GET", "/foo/bar/baz", h("b"))
-			baseGroup.Handle("GET", "/bar/baz", h("c"))
+			baseGroup.Handle("GET", "/bar/baz", h("Context"))
 		}
 
 		paths := []string{
@@ -185,13 +184,13 @@ func TestGroup_Handle_emptyPath(t *testing.T) {
 
 	router := NewDefaultRouter()
 	g := router.Group("/has/prefix")
-	g.Handle("GET", "", func(_ context.Context, _ *http.Request) Responder {
+	g.Handle("GET", "", func(_ *Context) Responder {
 		return &DefaultResponder{
 			Message: []byte("empty group path 1"),
 			Status:  200,
 		}
 	})
-	g.Handle("GET", "/", func(_ context.Context, _ *http.Request) Responder {
+	g.Handle("GET", "/", func(_ *Context) Responder {
 		return &DefaultResponder{
 			Message: []byte("empty group path 2"),
 			Status:  200,
@@ -224,7 +223,7 @@ func TestGroup_Handle_emptyPath_noPrefix(t *testing.T) {
 
 	router := NewDefaultRouter()
 	g := router.Group("")
-	g.Handle("GET", "", func(_ context.Context, _ *http.Request) Responder {
+	g.Handle("GET", "", func(_ *Context) Responder {
 		return &DefaultResponder{
 			Message: []byte("empty group path 1"),
 			Status:  200,

@@ -1,8 +1,6 @@
 package beehive_query
 
 import (
-	"context"
-	"net/http"
 	"strings"
 	"sync"
 
@@ -27,13 +25,15 @@ func Parser(fields []string) beehive.HandlerFunc {
 		},
 	}
 
-	return func(ctx context.Context, req *http.Request) beehive.Responder {
+	return func(ctx *beehive.Context) beehive.Responder {
+		r := ctx.Request
+
 		query := pool.Get().(*Values)
 		query.reset()
 
-		query.parse(req.URL.RawQuery)
+		query.parse(r.URL.RawQuery)
 
-		res := beehive.Next(context.WithValue(ctx, contextValuesKey, query), req)
+		res := ctx.WithValue(contextValuesKey, query).Next()
 		pool.Put(query)
 
 		return res

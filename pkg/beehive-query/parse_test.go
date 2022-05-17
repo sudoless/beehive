@@ -43,7 +43,7 @@ func Test_ValuesParser(t *testing.T) {
 	}
 
 	router.Handle(http.MethodGet, "/foo/bar", Parser(fields),
-		func(ctx context.Context, req *http.Request) beehive.Responder {
+		func(ctx *beehive.Context) beehive.Responder {
 			message := &bytes.Buffer{}
 			values := ContextValues(ctx)
 
@@ -104,13 +104,17 @@ func Test_ValuesParser(t *testing.T) {
 func Benchmark_ValuesParser(b *testing.B) {
 	parser := Parser([]string{"foo", "bar", "baz"})
 	req := httptest.NewRequest("GET", "/foo/bar?foo=123&bar=456&baz=789&foo=000", nil)
-	ctx := context.Background()
+	ctx := &beehive.Context{
+		ResponseWriter: nil,
+		Request:        req,
+		Context:        context.Background(),
+	}
 
 	b.ReportAllocs()
 	b.ResetTimer()
 
 	for iter := 0; iter < b.N; iter++ {
-		parser(ctx, req)
+		parser(ctx)
 	}
 
 	values := ContextValues(ctx)

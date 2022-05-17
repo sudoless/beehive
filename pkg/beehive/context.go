@@ -8,19 +8,17 @@ import (
 	"time"
 )
 
-type contextExtraKeyT struct{}
-
-var contextExtraKey = &contextExtraKeyT{}
-
-var contextExtraPool = &sync.Pool{
+var contextPool = &sync.Pool{
 	New: func() any {
-		return &contextExtra{}
+		return &Context{}
 	},
 }
 
-type contextExtra struct {
-	w           http.ResponseWriter
-	ctx         context.Context
+type Context struct {
+	ResponseWriter http.ResponseWriter
+	Request        *http.Request
+	Context        context.Context
+
 	router      *Router
 	handlers    []HandlerFunc
 	handlersIdx int
@@ -28,27 +26,40 @@ type contextExtra struct {
 
 // String returns a formatted string with the contents of the context. This method has no guarantee of compatability
 // between different versions of this package.
-func (c *contextExtra) String() string {
-	return fmt.Sprintf("be.contextExtra(idx=%d, handlers=%v, ctx=(%v))",
-		c.handlersIdx, c.handlers, c.ctx)
+func (c *Context) String() string {
+	return fmt.Sprintf("beehive.Context(idx=%d, handlers=%v, ctx=(%v))",
+		c.handlersIdx, c.handlers, c.Context)
 }
 
-func (c *contextExtra) Deadline() (deadline time.Time, ok bool) {
-	return c.ctx.Deadline()
+// Deadline calls the underlying context.Context.Deadline() method.
+func (c *Context) Deadline() (deadline time.Time, ok bool) {
+	return c.Context.Deadline()
 }
 
-func (c *contextExtra) Done() <-chan struct{} {
-	return c.ctx.Done()
+// Done calls the underlying context.Context.Done() method.
+func (c *Context) Done() <-chan struct{} {
+	return c.Context.Done()
 }
 
-func (c *contextExtra) Err() error {
-	return c.ctx.Err()
+// Err calls the underlying context.Context.Err() method.
+func (c *Context) Err() error {
+	return c.Context.Err()
 }
 
-func (c *contextExtra) Value(key any) any {
-	if key == contextExtraKey {
-		return c
-	}
+// Value calls the underlying context.Context.Value() method.
+func (c *Context) Value(key any) any {
+	return c.Context.Value(key)
+}
 
-	return c.ctx.Value(key)
+// Next calls the next handler in the chain.
+func (c *Context) Next() Responder {
+	c.handlersIdx++
+	return c.router.next(c)
+}
+
+// WithValue is a shortcut for Context.Context = context.WithValue(Context.Context, key, value) that also returns
+// the Context such that it can be chained with other methods.
+func (c *Context) WithValue(key, val any) *Context {
+	c.Context = context.WithValue(c.Context, key, val)
+	return c
 }

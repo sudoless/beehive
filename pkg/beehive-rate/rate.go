@@ -1,8 +1,6 @@
 package beehive_rate
 
 import (
-	"context"
-	"net/http"
 	"strconv"
 	"time"
 
@@ -16,10 +14,10 @@ type Limiter interface {
 func Limit(header string, limiter Limiter, limit int, responderFunc ResponderFunc) beehive.HandlerFunc {
 	headerLimit := []string{strconv.Itoa(limit)}
 
-	return func(ctx context.Context, req *http.Request) beehive.Responder {
-		key := req.Header.Get(header)
+	return func(ctx *beehive.Context) beehive.Responder {
+		key := ctx.Request.Header.Get(header)
 
-		w := beehive.ResponseWriter(ctx)
+		w := ctx.ResponseWriter
 		h := w.Header()
 
 		current, expiresAt := limiter.Limit(key)
