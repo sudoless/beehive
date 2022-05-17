@@ -9,6 +9,7 @@ import (
 	"github.com/sudoless/beehive/pkg/beehive"
 )
 
+//gocyclo:ignore
 func TestCORS(t *testing.T) {
 	t.Parallel()
 
