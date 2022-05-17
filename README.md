@@ -9,12 +9,13 @@ other packages can be used up to the users' discretion.
 
 ## Features
 
+- 🍯 Sweet and _simple_
 - 0 dependencies
 - 0 memory allocation routing
 - Route grouping, prefixing
 - Wildcard matching
 - Middleware and handler chaining
-- Fast and performant
+- _Fast and performant_
 
 ## Usage
 
@@ -23,92 +24,7 @@ Fetch it using the latest Golang preferred way.
 ### Example
 
 ```go
-package main
-
-import (
-	"context"
-	"log"
-	"net/http"
-	"strings"
-	"time"
-
-	"github.com/sudoless/beehive/pkg/beehive"
-	beCors "github.com/sudoless/beehive/pkg/beehive-cors"
-)
-
-func handleEcho(_ context.Context, r *http.Request) beehive.Responder {
-	path := r.URL.Path
-
-	return &beehive.DefaultResponder{
-		Message: []byte(r.Method + " " + path),
-		Status:  http.StatusOK,
-	}
-}
-
-func handleLog(ctx context.Context, r *http.Request) beehive.Responder {
-	start := time.Now()
-
-	res := beehive.Next(ctx, r)
-	if res == nil {
-		return nil
-	}
-
-	log.Printf("[%d] %s: %s | %s",
-		res.StatusCode(ctx, r),
-		r.Method,
-		r.URL.String(),
-		time.Since(start).String())
-
-	return res
-}
-
-func main() {
-	router := be.NewDefaultRouter()
-
-	corsConfig := &beCors.Config{
-		AllowHosts:       []string{"dashboard.example.com"},
-		AllowMethods:     []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
-		AllowHeaders:     []string{"Content-Type", "Foo"},
-		AllowCredentials: true,
-		MaxAge:           0,
-	}
-
-	api := router.Group("/api", handleLog)
-	api.Handle("GET", "/foo/bar", handleEcho)
-
-	corsGroup := corsConfig.Apply(api.Group("/cors"))
-	{
-		corsGroup.
-			Handle("GET", "/foo", handleEcho).
-			HandleAny([]string{"GET", "POST"}, "/foo/bar", handleEcho).
-			Handle("GET", "/fiz", handleEcho).
-			Handle("GET", "/", handleEcho)
-
-		corsGroup.Handle("GET", "/abc", handleEcho)
-		corsGroup.Handle("PUT", "/abc", handleEcho)
-	}
-
-	router.Handle("GET", "/routes", func(_ context.Context, _ *http.Request) be.Responder {
-		routes := strings.Join(router.DebugRoutes(), "\n")
-		return &be.DefaultResponder{
-			Message: []byte(routes),
-			Status:  http.StatusOK,
-		}
-	})
-
-	server := http.Server{
-		Addr:           "127.0.0.1:8888",
-		Handler:        router,
-		ReadTimeout:    time.Second * 5,
-		IdleTimeout:    time.Second * 10,
-		MaxHeaderBytes: 1 << 16,
-	}
-
-	log.Println("starting server")
-	if err := server.ListenAndServe(); err != nil {
-		log.Fatalln(err)
-	}
-}
+// better example coming soon™
 ```
 
 ## Version
