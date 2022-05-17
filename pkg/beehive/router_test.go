@@ -541,3 +541,35 @@ func TestRouter_Superfluous(t *testing.T) {
 		t.Log(buffer.String())
 	})
 }
+
+type noopResponeWriter struct{}
+
+func (n noopResponeWriter) Header() http.Header { return http.Header{} }
+
+func (n noopResponeWriter) Write(i []byte) (int, error) {
+	return len(i), nil
+}
+
+func (n noopResponeWriter) WriteHeader(_ int) {}
+
+func BenchmarkRouter_ServeHTTP(b *testing.B) {
+	responder := &DefaultResponder{
+		Message: []byte("ok"),
+		Status:  200,
+	}
+
+	router := NewRouter()
+	router.Handle("GET", "/foo/bar", func(ctx *Context) Responder {
+		return responder
+	})
+
+	r := httptest.NewRequest(http.MethodGet, "/foo/bar", nil)
+	w := noopResponeWriter{}
+
+	b.ReportAllocs()
+	b.ResetTimer()
+
+	for iter := 0; iter < b.N; iter++ {
+		router.ServeHTTP(w, r)
+	}
+}
