@@ -99,10 +99,6 @@ func (t testContextContractResponder) Body(_ *Context) []byte {
 	return nil
 }
 
-func (t testContextContractResponder) Headers(_ *Context) {
-	return
-}
-
 func (t testContextContractResponder) Cookies(_ *Context) []*http.Cookie {
 	return nil
 }

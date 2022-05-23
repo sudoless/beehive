@@ -344,8 +344,6 @@ func (c *cookieResponder) Body(_ *Context) []byte {
 	return nil
 }
 
-func (c *cookieResponder) Headers(_ *Context) {}
-
 func (c *cookieResponder) Cookies(_ *Context) []*http.Cookie {
 	return c.cookies
 }

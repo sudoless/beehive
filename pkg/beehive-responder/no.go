@@ -26,8 +26,3 @@ type NoBody struct{}
 func (r *NoBody) Body(_ *beehive.Context) []byte {
 	return nil
 }
-
-// NoHeaders implements beehive.Responder Headers method by setting no headers.
-type NoHeaders struct{}
-
-func (r *NoHeaders) Headers(_ *beehive.Context) {}
