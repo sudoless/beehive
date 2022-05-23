@@ -49,7 +49,7 @@ var (
 	}
 
 	defaultContextDoneResponder = &DefaultResponder{
-		Message: []byte("context done"),
+		Message: []byte("context terminated"),
 		Status:  http.StatusGatewayTimeout,
 	}
 )

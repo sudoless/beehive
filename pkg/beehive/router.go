@@ -136,8 +136,7 @@ func (router *Router) next(ctx *Context) Responder {
 	for {
 		select {
 		case <-ctx.Context.Done():
-			router.respond(ctx, router.WhenContextDone(ctx))
-			return nil
+			return router.WhenContextDone(ctx)
 		default:
 			if ctx.handlersIdx >= len(ctx.handlers) {
 				return nil

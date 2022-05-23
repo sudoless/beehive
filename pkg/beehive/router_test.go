@@ -576,3 +576,60 @@ func BenchmarkRouter_ServeHTTP(b *testing.B) {
 		router.ServeHTTP(w, r)
 	}
 }
+
+func TestRouter_ServeHTTP_contextDone(t *testing.T) {
+	t.Parallel()
+
+	tCtx, cc := context.WithCancel(context.Background())
+	defer cc()
+
+	router := NewRouter()
+	router.Context = func(_ *http.Request) context.Context {
+		return tCtx
+	}
+
+	trace := make([]string, 0)
+	middleware1 := func(ctx *Context) Responder {
+		cc()
+
+		trace = append(trace, "middleware1 start")
+		res := ctx.Next()
+		trace = append(trace, "middleware1 end")
+
+		return res
+	}
+	middleware2 := func(_ *Context) Responder {
+		trace = append(trace, "middleware2")
+		return nil
+	}
+
+	router.Handle("GET", "/foo", middleware1, middleware2, func(ctx *Context) Responder {
+		trace = append(trace, "handler")
+		return &DefaultResponder{
+			Message: []byte("ok"),
+			Status:  200,
+		}
+	})
+
+	r := httptest.NewRequest(http.MethodGet, "/foo", nil)
+	w := httptest.NewRecorder()
+
+	router.ServeHTTP(w, r)
+
+	if !reflect.DeepEqual(trace, []string{
+		"middleware1 start",
+		"middleware1 end",
+	}) {
+		t.Errorf("expected %v, got %v", []string{
+			"middleware1 start",
+			"middleware1 end",
+		}, trace)
+	}
+
+	if w.Code != http.StatusGatewayTimeout {
+		t.Errorf("expected %d, got %d", http.StatusGatewayTimeout, w.Code)
+	}
+	if w.Body.String() != "context terminated" {
+		t.Errorf("expected %s, got %s", "context terminated", w.Body.String())
+	}
+}
