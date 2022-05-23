@@ -398,7 +398,6 @@ func Test_node_add_wildcard(t *testing.T) {
 			t.Errorf("expected %s path", path)
 		}
 	}
-
 }
 
 func Test_node_add_wildcard_edge_case(t *testing.T) {
