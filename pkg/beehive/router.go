@@ -10,18 +10,18 @@ import (
 // Router is the core of the beehive package. It implements the Grouper interface for creating route groups or
 // for applying middlewares.
 type Router struct {
-	// WhenNotFound is called when the route does not match or the matched route has 0 handlers.
-	WhenNotFound Responder
-
-	// WhenMethodNotAllowed is called when the router has no routes defined for the requested method.
-	WhenMethodNotAllowed Responder
-
-	// WhenContextDone is called when the context is "done" (canceled or timed out).
-	WhenContextDone Responder
-
 	// Context is called to obtain a context for the request. By default, if a nil context.Context is returned then
 	// the http.Request context is used.
 	Context func(r *http.Request) context.Context
+
+	// WhenNotFound is called when the route does not match or the matched route has 0 handlers.
+	WhenNotFound func(ctx *Context) Responder
+
+	// WhenMethodNotAllowed is called when the router has no routes defined for the requested method.
+	WhenMethodNotAllowed func(ctx *Context) Responder
+
+	// WhenContextDone is called when the context is "done" (canceled or timed out).
+	WhenContextDone func(ctx *Context) Responder
 
 	// Recover is called when a panic occurs inside ServeHTTP.
 	Recover func(ctx *Context, panicErr any) Responder
@@ -35,24 +35,24 @@ func NewRouter() *Router {
 	router := &Router{
 		methods: make(map[string]*node.Trie),
 		Context: DefaultContext,
+		Recover: func(ctx *Context, panicErr any) Responder {
+			return defaultPanicResponder
+		},
+		WhenMethodNotAllowed: func(ctx *Context) Responder {
+			return defaultNotFoundResponder
+		},
+		WhenNotFound: func(ctx *Context) Responder {
+			return defaultNotFoundResponder
+		},
+		WhenContextDone: func(ctx *Context) Responder {
+			return defaultContextDoneResponder
+		},
 	}
 
 	router.group = group{
 		router:     router,
 		middleware: nil,
 	}
-
-	return router
-}
-
-// NewDefaultRouter returns an empty router with simple text/plain DefaultResponder implementation for the When...
-// interfaces and the DefaultContext function.
-func NewDefaultRouter() *Router {
-	router := NewRouter()
-
-	router.WhenNotFound = &DefaultResponder{Status: http.StatusNotFound, Message: []byte("not found")}
-	router.WhenMethodNotAllowed = &DefaultResponder{Status: http.StatusMethodNotAllowed, Message: []byte("method not allowed")}
-	router.WhenContextDone = &DefaultResponder{Status: http.StatusGatewayTimeout, Message: []byte("context finished, canceled or timed out")}
 
 	return router
 }
@@ -85,30 +85,26 @@ func (router *Router) serveHTTP(ctx *Context) {
 
 	defer func() {
 		if err := recover(); err != nil {
-			if router.Recover != nil {
-				router.respond(ctx, router.Recover(ctx, err))
-			} else {
-				router.respond(ctx, defaultPanicResponder)
-			}
+			router.respond(ctx, router.Recover(ctx, err))
 		}
 	}()
 
 	root := router.methods[r.Method]
 	if root == nil {
-		router.respond(ctx, router.WhenMethodNotAllowed)
+		router.respond(ctx, router.WhenMethodNotAllowed(ctx))
 		return
 	}
 
 	path := r.URL.Path
 	n, err := root.Get(path)
 	if err != nil {
-		router.respond(ctx, router.WhenNotFound)
+		router.respond(ctx, router.WhenNotFound(ctx))
 		return
 	}
 
 	handlers, ok := n.Data().([]HandlerFunc)
 	if !ok || len(handlers) == 0 {
-		router.respond(ctx, router.WhenNotFound)
+		router.respond(ctx, router.WhenNotFound(ctx))
 		return
 	}
 	ctx.handlers = handlers
@@ -140,7 +136,7 @@ func (router *Router) next(ctx *Context) Responder {
 	for {
 		select {
 		case <-ctx.Context.Done():
-			router.respond(ctx, router.WhenContextDone)
+			router.respond(ctx, router.WhenContextDone(ctx))
 			return nil
 		default:
 			if ctx.handlersIdx >= len(ctx.handlers) {

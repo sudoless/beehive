@@ -37,7 +37,19 @@ func (r *DefaultResponder) Cookies(_ *Context) []*http.Cookie {
 	return nil
 }
 
-var defaultPanicResponder = &DefaultResponder{
-	Message: []byte("recovered from panic"),
-	Status:  http.StatusInternalServerError,
-}
+var (
+	defaultPanicResponder = &DefaultResponder{
+		Message: []byte("recovered from panic"),
+		Status:  http.StatusInternalServerError,
+	}
+
+	defaultNotFoundResponder = &DefaultResponder{
+		Message: []byte("not found"),
+		Status:  http.StatusNotFound,
+	}
+
+	defaultContextDoneResponder = &DefaultResponder{
+		Message: []byte("context done"),
+		Status:  http.StatusGatewayTimeout,
+	}
+)

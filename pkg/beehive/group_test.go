@@ -31,7 +31,7 @@ func TestRouter_Group(t *testing.T) {
 	}
 
 	t.Run("prefix", func(t *testing.T) {
-		router := NewDefaultRouter()
+		router := NewRouter()
 		router.Group("/api").
 			Handle("GET", "/health", h("/api/health")).
 			Handle("GET", "/foo/bar", h("/api/foo/bar"))
@@ -55,7 +55,7 @@ func TestRouter_Group(t *testing.T) {
 		}
 	})
 	t.Run("middleware", func(t *testing.T) {
-		router := NewDefaultRouter()
+		router := NewRouter()
 		api := router.Group("/api")
 		{
 			api.Handle("GET", "/health", h("/api/health"))
@@ -137,7 +137,7 @@ func TestRouter_Group(t *testing.T) {
 			return nil
 		}
 
-		router := NewDefaultRouter()
+		router := NewRouter()
 		baseGroup := router.Group("", middleware)
 		{
 			baseGroup.Handle("GET", "/foo/bar", h("a"))
@@ -174,7 +174,7 @@ func TestRouter_Group_panic(t *testing.T) {
 			}
 		}()
 
-		router := NewDefaultRouter()
+		router := NewRouter()
 		_ = router.Group("/api/*")
 	})
 }
@@ -182,7 +182,7 @@ func TestRouter_Group_panic(t *testing.T) {
 func TestGroup_Handle_emptyPath(t *testing.T) {
 	t.Parallel()
 
-	router := NewDefaultRouter()
+	router := NewRouter()
 	g := router.Group("/has/prefix")
 	g.Handle("GET", "", func(_ *Context) Responder {
 		return &DefaultResponder{
@@ -221,7 +221,7 @@ func TestGroup_Handle_emptyPath_noPrefix(t *testing.T) {
 		}
 	}()
 
-	router := NewDefaultRouter()
+	router := NewRouter()
 	g := router.Group("")
 	g.Handle("GET", "", func(_ *Context) Responder {
 		return &DefaultResponder{

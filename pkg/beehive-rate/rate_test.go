@@ -53,7 +53,7 @@ func TestRateLimit(t *testing.T) {
 		expireAfter: time.Hour,
 	}
 
-	router := beehive.NewDefaultRouter()
+	router := beehive.NewRouter()
 	router.Handle("GET", "/foo/bar",
 		Limit("X-Ip", testLimiter, 100, func(_ string, _, _ int, _ time.Time) beehive.Responder {
 			return &beehive.DefaultResponder{
@@ -134,7 +134,7 @@ func TestRateLimit_noKey(t *testing.T) {
 		expireAfter: time.Hour,
 	}
 
-	router := beehive.NewDefaultRouter()
+	router := beehive.NewRouter()
 	router.Handle("GET", "/foo/bar",
 		Limit("X-Ip", testLimiter, 100, nil),
 		handler)

@@ -37,7 +37,7 @@ func Test_ValuesParser(t *testing.T) {
 
 	fields := []string{"foo", "bar", "baz"}
 
-	router := beehive.NewDefaultRouter()
+	router := beehive.NewRouter()
 	router.Context = func(_ *http.Request) context.Context {
 		return context.Background()
 	}

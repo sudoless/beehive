@@ -11,7 +11,7 @@ import (
 func Test_Responder(t *testing.T) {
 	t.Parallel()
 
-	router := beehive.NewDefaultRouter()
+	router := beehive.NewRouter()
 	router.Handle("GET", "/foo/bar", func(_ *beehive.Context) beehive.Responder {
 		return defaultResponder
 	})

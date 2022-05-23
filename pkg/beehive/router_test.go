@@ -56,7 +56,7 @@ func TestRouter_request_next(t *testing.T) {
 		}
 	}
 
-	router := NewDefaultRouter()
+	router := NewRouter()
 	router.Handle("GET", "/foo/bar",
 		testHandler1,
 		testHandler2,
@@ -86,7 +86,7 @@ func TestRouter_HandleAny(t *testing.T) {
 	t.Parallel()
 
 	methods := []string{"GET", "POST", "PUT"}
-	router := NewDefaultRouter()
+	router := NewRouter()
 
 	counter := 0
 	router.HandleAny(methods, "/foo/bar", func(ctx *Context) Responder {
@@ -125,8 +125,8 @@ func TestRouter_HandleAny(t *testing.T) {
 		r := httptest.NewRequest("HEAD", "/foo/bar/baz", nil)
 		router.ServeHTTP(w, r)
 
-		if w.Code != http.StatusMethodNotAllowed {
-			t.Errorf("expected %d, got %d", http.StatusMethodNotAllowed, w.Code)
+		if w.Code != http.StatusNotFound {
+			t.Errorf("expected %d, got %d", http.StatusNotFound, w.Code)
 		}
 	})
 }
@@ -135,26 +135,29 @@ func TestRouter_default(t *testing.T) {
 	t.Parallel()
 
 	t.Run("no handlers", func(t *testing.T) {
-		router := NewDefaultRouter()
+		router := NewRouter()
 		w := httptest.NewRecorder()
 		r := httptest.NewRequest("GET", "/foo/bar", nil)
 		router.ServeHTTP(w, r)
 
-		if w.Code != http.StatusMethodNotAllowed {
-			t.Errorf("expected %d, got %d", http.StatusMethodNotAllowed, w.Code)
+		if w.Code != http.StatusNotFound {
+			t.Errorf("expected %d, got %d", http.StatusNotFound, w.Code)
 		}
 	})
 	t.Run("empty router", func(t *testing.T) {
+		defer func() {
+			if r := recover(); r == nil {
+				t.Errorf("expected panic, got nil")
+			}
+		}()
+
 		router := &Router{}
 		router.Context = DefaultContext
 		w := httptest.NewRecorder()
 		r := httptest.NewRequest("GET", "/foo/bar", nil)
 		router.ServeHTTP(w, r)
 
-		if w.Code != http.StatusOK {
-			t.Errorf("expected %d, got %d", http.StatusOK, w.Code)
-			t.Logf("response_body=%q", w.Body.String())
-		}
+		t.FailNow()
 	})
 }
 
@@ -162,7 +165,7 @@ func TestRouter_context(t *testing.T) {
 	t.Parallel()
 
 	t.Run("nil", func(t *testing.T) {
-		router := NewDefaultRouter()
+		router := NewRouter()
 		router.Context = func(r *http.Request) context.Context {
 			return nil
 		}
@@ -186,10 +189,12 @@ func TestRouter_context(t *testing.T) {
 		}
 	})
 	t.Run("closed", func(t *testing.T) {
-		router := NewDefaultRouter()
-		router.WhenContextDone = &DefaultResponder{
-			Message: []byte("ok"),
-			Status:  http.StatusTeapot,
+		router := NewRouter()
+		router.WhenContextDone = func(_ *Context) Responder {
+			return &DefaultResponder{
+				Message: []byte("ok"),
+				Status:  http.StatusTeapot,
+			}
 		}
 		router.Context = func(_ *http.Request) context.Context {
 			ctx, cc := context.WithCancel(context.Background())
@@ -220,7 +225,7 @@ func TestRouter_recovery(t *testing.T) {
 			}
 		}()
 
-		router := NewDefaultRouter()
+		router := NewRouter()
 		router.Handle("GET", "/foo/bar", func(_ *Context) Responder {
 			panic("on purpose")
 		})
@@ -244,7 +249,7 @@ func TestRouter_recovery(t *testing.T) {
 			}
 		}()
 
-		router := NewDefaultRouter()
+		router := NewRouter()
 		router.Recover = func(ctx *Context, panicErr any) Responder {
 			if panicErr != "on purpose" {
 				t.Fatal("expected panicErr to be on purpose")
@@ -276,7 +281,7 @@ func TestRouter_recovery(t *testing.T) {
 			}
 		}()
 
-		router := NewDefaultRouter()
+		router := NewRouter()
 		router.Recover = func(ctx *Context, panicErr any) Responder {
 			panic("double panic " + panicErr.(string))
 		}
@@ -302,7 +307,7 @@ func TestRouter_Handle(t *testing.T) {
 			}
 		}()
 
-		router := NewDefaultRouter()
+		router := NewRouter()
 		router.Handle("GET", "")
 	})
 	t.Run("no handlers", func(t *testing.T) {
@@ -312,7 +317,7 @@ func TestRouter_Handle(t *testing.T) {
 			}
 		}()
 
-		router := NewDefaultRouter()
+		router := NewRouter()
 		router.Handle("GET", "/foo/bar")
 	})
 	t.Run("duplicate", func(t *testing.T) {
@@ -326,7 +331,7 @@ func TestRouter_Handle(t *testing.T) {
 			return nil
 		}
 
-		router := NewDefaultRouter()
+		router := NewRouter()
 		router.Handle("GET", "/foo/bar", testHandlerDummy)
 		router.Handle("GET", "/foo/bar", testHandlerDummy)
 	})
@@ -367,7 +372,7 @@ func TestRouter_respond_cookies(t *testing.T) {
 		}
 	}
 
-	router := NewDefaultRouter()
+	router := NewRouter()
 	router.Handle(http.MethodGet, "/foo", handler)
 
 	w := httptest.NewRecorder()
@@ -409,7 +414,7 @@ func Test_ResponseWriter(t *testing.T) {
 		return nil
 	}
 
-	router := NewDefaultRouter()
+	router := NewRouter()
 	router.Handle("GET", "/foo", middleware, func(_ *Context) Responder {
 		return &DefaultResponder{
 			Message: []byte("ok"),
@@ -447,7 +452,7 @@ func TestRouter_InServer_Shutdown(t *testing.T) {
 
 	var counter int32
 
-	router := NewDefaultRouter()
+	router := NewRouter()
 	router.Handle("GET", "/sleep", func(ctx *Context) Responder {
 		time.Sleep(time.Millisecond * 100)
 		atomic.AddInt32(&counter, 1)

@@ -26,7 +26,7 @@ func TestCORS(t *testing.T) {
 		Status:  http.StatusOK,
 	}
 
-	router := beehive.NewDefaultRouter()
+	router := beehive.NewRouter()
 	corsGroup := config.Apply(router)
 	corsGroup.Handle("GET", "/foo/bar", func(_ *beehive.Context) beehive.Responder {
 		return ok
