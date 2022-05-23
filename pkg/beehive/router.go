@@ -125,8 +125,6 @@ func (router *Router) respond(ctx *Context, res Responder) {
 
 	body := res.Body(ctx)
 
-	res.Headers(ctx)
-
 	for _, cookie := range res.Cookies(ctx) {
 		http.SetCookie(w, cookie)
 	}

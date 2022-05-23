@@ -11,7 +11,6 @@ import (
 type Responder interface {
 	StatusCode(ctx *Context) int
 	Body(ctx *Context) []byte
-	Headers(ctx *Context)
 	Cookies(ctx *Context) []*http.Cookie
 }
 
@@ -31,25 +30,6 @@ func (r *DefaultResponder) StatusCode(_ *Context) int {
 // Body returns the message body.
 func (r *DefaultResponder) Body(_ *Context) []byte {
 	return r.Message
-}
-
-var (
-	defaultHeaderContentType        = []string{"text/plain; charset=utf-8"}
-	defaultHeaderContentTypeOptions = []string{"nosniff"}
-	defaultHeaderFrameOptions       = []string{"DENY"}
-	defaultHeaderXssProtection      = []string{"1; mode=block"}
-	defaultHeaderCacheControl       = []string{"no-cache, no-store, must-revalidate"}
-)
-
-// Headers on the DefaultResponder sets some fundamental, strict headers.
-func (r *DefaultResponder) Headers(ctx *Context) {
-	h := ctx.Request.Header
-
-	h["Content-Type"] = defaultHeaderContentType
-	h["X-Content-Type-Options"] = defaultHeaderContentTypeOptions
-	h["X-Frame-Options"] = defaultHeaderFrameOptions
-	h["X-XSS-Protection"] = defaultHeaderXssProtection
-	h["Cache-Control"] = defaultHeaderCacheControl
 }
 
 // Cookies on the DefaultResponder returns no cookies.
