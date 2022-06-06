@@ -8,7 +8,7 @@ import (
 	"net/http/httptest"
 	"time"
 
-	"github.com/sudoless/beehive/pkg/beehive"
+	"go.sdls.io/beehive/pkg/beehive"
 )
 
 func Example_newRouterWithHttpServer() {

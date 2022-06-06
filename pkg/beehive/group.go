@@ -3,7 +3,7 @@ package beehive
 import (
 	"fmt"
 
-	"github.com/sudoless/beehive/internal/node"
+	"go.sdls.io/beehive/internal/node"
 )
 
 // Grouper implements the abstraction layer for applying a handler or middleware on a group of routes.

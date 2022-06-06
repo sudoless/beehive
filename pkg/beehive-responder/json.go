@@ -3,7 +3,7 @@ package beehive_responder
 import (
 	"encoding/json"
 
-	"github.com/sudoless/beehive/pkg/beehive"
+	"go.sdls.io/beehive/pkg/beehive"
 )
 
 // JSON implements the beehive.Responder interface by calling json.Marshal on the given Object when Body is first called.

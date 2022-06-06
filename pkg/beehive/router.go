@@ -4,7 +4,7 @@ import (
 	"context"
 	"net/http"
 
-	"github.com/sudoless/beehive/internal/node"
+	"go.sdls.io/beehive/internal/node"
 )
 
 // Router is the core of the beehive package. It implements the Grouper interface for creating route groups or

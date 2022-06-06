@@ -4,7 +4,7 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/sudoless/beehive/pkg/beehive"
+	"go.sdls.io/beehive/pkg/beehive"
 )
 
 // Parser is used to build a beehive.HandlerFunc that will populate the context.Context with the Values.

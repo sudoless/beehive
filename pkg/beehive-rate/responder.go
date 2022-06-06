@@ -4,8 +4,8 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/sudoless/beehive/pkg/beehive"
-	beehiveResponder "github.com/sudoless/beehive/pkg/beehive-responder"
+	"go.sdls.io/beehive/pkg/beehive"
+	beehiveResponder "go.sdls.io/beehive/pkg/beehive-responder"
 )
 
 type ResponderFunc func(key string, limit, current int, expireAt time.Time) beehive.Responder

@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/sudoless/beehive/pkg/beehive"
+	"go.sdls.io/beehive/pkg/beehive"
 )
 
 type testRateLimiter struct {

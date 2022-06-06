@@ -13,7 +13,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/sudoless/beehive/pkg/beehive"
+	"go.sdls.io/beehive/pkg/beehive"
 )
 
 func testBeesLogger(w io.Writer) beehive.HandlerFunc {

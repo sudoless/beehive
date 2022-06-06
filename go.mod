@@ -1,3 +1,3 @@
-module github.com/sudoless/beehive
+module go.sdls.io/beehive
 
 go 1.18

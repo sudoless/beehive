@@ -4,7 +4,7 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/sudoless/beehive/pkg/beehive"
+	"go.sdls.io/beehive/pkg/beehive"
 )
 
 type Limiter interface {

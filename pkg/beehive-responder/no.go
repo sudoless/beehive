@@ -1,7 +1,7 @@
 package beehive_responder
 
 import (
-	"github.com/sudoless/beehive/pkg/beehive"
+	"go.sdls.io/beehive/pkg/beehive"
 )
 
 // NoBody implements beehive.Responder Body method by returning nil.
