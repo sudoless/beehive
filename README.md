@@ -1,6 +1,6 @@
 # BeeHive 🐝🐝🐝
 
-**Be**eHive is a highly opinionated performant HTTP router with a
+BeeHive is a highly opinionated performant HTTP router with a
 series of middleware and utilities for production ready robust systems.
 
 Less is more. As such the router has 0 dependencies and all middleware
@@ -10,7 +10,7 @@ other packages can be used up to the users' discretion.
 ## Features
 
 - 🍯 Sweet and _simple_
-- 0 dependencies
+- [0 dependencies](go.mod)
 - 0 memory allocation routing
 - Route grouping, prefixing
 - Wildcard matching
@@ -22,6 +22,14 @@ other packages can be used up to the users' discretion.
 Fetch it using the latest Golang preferred way.
 
 ### Example
+
+To see side by side comparison of BeeHive and other Go routers, check out the individual "Rosetta" docs:
+- [Chi Rosetta](docs/rosetta_chi.md), and the original [project](https://github.com/go-chi/chi)
+- [Echo Rosetta](docs/rosetta_echo.md), and the original [project](https://github.com/labstack/echo)
+- [Gin Rosetta](docs/rosetta_gin.md), and the original [project](https://github.com/gin-gonic/gin)
+- [Go Rosetta](docs/rosetta_go.md), and the original [project](https://pkg.go.dev/net/http)
+
+For some classic examples:
 
 ```go
 // better example coming soon™
