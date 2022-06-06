@@ -27,7 +27,6 @@ To see side by side comparison of BeeHive and other Go routers, check out the in
 - [Chi Rosetta](docs/rosetta_chi.md), and the original [project](https://github.com/go-chi/chi)
 - [Echo Rosetta](docs/rosetta_echo.md), and the original [project](https://github.com/labstack/echo)
 - [Gin Rosetta](docs/rosetta_gin.md), and the original [project](https://github.com/gin-gonic/gin)
-- [Go Rosetta](docs/rosetta_go.md), and the original [project](https://pkg.go.dev/net/http)
 
 For some classic examples:
 
