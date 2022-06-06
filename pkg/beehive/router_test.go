@@ -444,8 +444,6 @@ func Test_ResponseWriter(t *testing.T) {
 }
 
 func TestRouter_InServer_Shutdown(t *testing.T) {
-	t.Parallel()
-
 	if testing.Short() {
 		t.Skip("skipping test in short mode")
 	}
