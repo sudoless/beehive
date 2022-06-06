@@ -337,67 +337,6 @@ func TestRouter_Handle(t *testing.T) {
 	})
 }
 
-type cookieResponder struct {
-	cookies []*http.Cookie
-}
-
-func (c *cookieResponder) StatusCode(_ *Context) int {
-	return http.StatusOK
-}
-
-func (c *cookieResponder) Body(_ *Context) []byte {
-	return nil
-}
-
-func (c *cookieResponder) Cookies(_ *Context) []*http.Cookie {
-	return c.cookies
-}
-
-func TestRouter_respond_cookies(t *testing.T) {
-	t.Parallel()
-
-	handler := func(ctx *Context) Responder {
-		return &cookieResponder{
-			cookies: []*http.Cookie{
-				{
-					Name:     "user",
-					Value:    "foobar",
-					Path:     "/",
-					Domain:   "localhost",
-					MaxAge:   3600,
-					HttpOnly: true,
-					SameSite: http.SameSiteLaxMode,
-				},
-			},
-		}
-	}
-
-	router := NewRouter()
-	router.Handle(http.MethodGet, "/foo", handler)
-
-	w := httptest.NewRecorder()
-	r := httptest.NewRequest(http.MethodGet, "/foo", nil)
-
-	router.ServeHTTP(w, r)
-
-	if w.Code != http.StatusOK {
-		t.Errorf("expected %d, got %d", http.StatusOK, w.Code)
-	}
-
-	cookies := w.Result().Cookies()
-	if len(cookies) != 1 {
-		t.Errorf("expected 1 cookie, got %d", len(w.Result().Cookies()))
-	}
-
-	cookie := cookies[0]
-	if cookie.Name != "user" {
-		t.Errorf("expected cookie name %s, got %s", "user", cookie.Name)
-	}
-	if cookie.Value != "foobar" {
-		t.Errorf("expected cookie value %s, got %s", "foobar", cookie.Value)
-	}
-}
-
 func Test_ResponseWriter(t *testing.T) {
 	t.Parallel()
 

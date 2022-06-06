@@ -118,15 +118,9 @@ func (router *Router) respond(ctx *Context, res Responder) {
 	}
 
 	w := ctx.ResponseWriter
-
-	body := res.Body(ctx)
-
-	for _, cookie := range res.Cookies(ctx) {
-		http.SetCookie(w, cookie)
-	}
-
 	w.WriteHeader(res.StatusCode(ctx))
 
+	body := res.Body(ctx)
 	if body != nil {
 		_, _ = w.Write(body)
 	}

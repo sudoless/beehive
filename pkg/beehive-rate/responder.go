@@ -12,7 +12,6 @@ type ResponderFunc func(key string, limit, current int, expireAt time.Time) beeh
 
 type Responder struct {
 	beehiveResponder.NoBody
-	beehiveResponder.NoCookies
 }
 
 func (r *Responder) StatusCode(_ *beehive.Context) int {

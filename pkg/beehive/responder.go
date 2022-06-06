@@ -11,7 +11,6 @@ import (
 type Responder interface {
 	StatusCode(ctx *Context) int
 	Body(ctx *Context) []byte
-	Cookies(ctx *Context) []*http.Cookie
 }
 
 // DefaultResponder is the default implementation of Responder. It returns a defined set of headers, the
@@ -30,11 +29,6 @@ func (r *DefaultResponder) StatusCode(_ *Context) int {
 // Body returns the message body.
 func (r *DefaultResponder) Body(_ *Context) []byte {
 	return r.Message
-}
-
-// Cookies on the DefaultResponder returns no cookies.
-func (r *DefaultResponder) Cookies(_ *Context) []*http.Cookie {
-	return nil
 }
 
 var (
