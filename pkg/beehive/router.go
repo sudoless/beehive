@@ -117,10 +117,11 @@ func (router *Router) respond(ctx *Context, res Responder) {
 		return
 	}
 
+	body := res.Body(ctx)
+
 	w := ctx.ResponseWriter
 	w.WriteHeader(res.StatusCode(ctx))
 
-	body := res.Body(ctx)
 	if body != nil {
 		_, _ = w.Write(body)
 	}
