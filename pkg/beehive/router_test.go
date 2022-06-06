@@ -543,15 +543,15 @@ func TestRouter_Superfluous(t *testing.T) {
 	})
 }
 
-type noopResponeWriter struct{}
+type noopResponseWriter struct{}
 
-func (n noopResponeWriter) Header() http.Header { return http.Header{} }
+func (n noopResponseWriter) Header() http.Header { return http.Header{} }
 
-func (n noopResponeWriter) Write(i []byte) (int, error) {
+func (n noopResponseWriter) Write(i []byte) (int, error) {
 	return len(i), nil
 }
 
-func (n noopResponeWriter) WriteHeader(_ int) {}
+func (n noopResponseWriter) WriteHeader(_ int) {}
 
 func BenchmarkRouter_ServeHTTP(b *testing.B) {
 	responder := &DefaultResponder{
@@ -565,7 +565,7 @@ func BenchmarkRouter_ServeHTTP(b *testing.B) {
 	})
 
 	r := httptest.NewRequest(http.MethodGet, "/foo/bar", nil)
-	w := noopResponeWriter{}
+	w := noopResponseWriter{}
 
 	b.ReportAllocs()
 	b.ResetTimer()
