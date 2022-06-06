@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/sudoless/beehive/pkg/beehive"
-	ws_responder "github.com/sudoless/beehive/pkg/beehive-responder"
+	beehiveResponder "github.com/sudoless/beehive/pkg/beehive-responder"
 )
 
 type Config struct {
@@ -45,7 +45,7 @@ func (c *Config) Allow(origin string) bool {
 func (c *Config) HandlerFunc(preFlight bool) beehive.HandlerFunc {
 	var responderAllow beehive.Responder
 	if preFlight {
-		responderAllow = &ws_responder.Status{Code: http.StatusNoContent}
+		responderAllow = &beehiveResponder.Status{Code: http.StatusNoContent}
 	}
 
 	responderForbidden := &beehive.DefaultResponder{
