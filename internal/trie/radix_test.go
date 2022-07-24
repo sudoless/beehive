@@ -482,4 +482,60 @@ func TestRadix_wildcard_special(t *testing.T) {
 			}
 		}
 	})
+	t.Run("2", func(t *testing.T) {
+		paths := []string{
+			"/wildcard*",
+			"/wildcard/12345",
+			"/wildcard/67890",
+			"/wildcard-foo/baz",
+			"/wildcard-foo/biz",
+			"/wildcard-foo/fiz/*",
+			"/wildcard-foo/*",
+			"/wild/*",
+			"/wild/card/*",
+		}
+
+		radix := &Radix{}
+		for idx, path := range paths {
+			radix.Add(path, idx)
+		}
+
+		t.Log(radix.Get("/wildcard-foo/"))
+		t.Log(radix.Get("/wildcard-foo/fiz/"))
+		t.Log(radix.Get("/wildcard-foo/fiz"))
+		t.Log(radix.Get("/wildcard-foo/fiz/biz"))
+		t.Log(radix.Get("/wildcard/12345"))
+		t.Log(radix.Get("/wildcard12345"))
+		t.Log(radix.Get("/wildcard-"))
+		t.Log(radix.Get("/wildcard-f"))
+		t.Log(radix.Get("/wildcard-fo"))
+		t.Log(radix.Get("/wildcard-foo"))
+		t.Log(radix.Get("/wildcard-foo/"))
+	})
+}
+
+func BenchmarkRadix_wildcard_Get(b *testing.B) {
+	radix := &Radix{}
+	paths := []string{
+		"/wildcard*",
+		"/wildcard/12345",
+		"/wild/card/*",
+		"/wildcard-foo/baz",
+		"/wild/*",
+		"/wildcard/67890",
+		"/wildcard-foo/fiz/*",
+		"/wildcard-foo/biz",
+		"/wildcard-foo/*",
+	}
+
+	for idx, path := range paths {
+		radix.Add(path, idx)
+	}
+
+	b.ReportAllocs()
+	b.ResetTimer()
+
+	for iter := 0; iter < b.N; iter++ {
+		radix.Get("/wildcard-foo/fiz/biz")
+	}
 }
