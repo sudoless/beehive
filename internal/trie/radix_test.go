@@ -304,3 +304,160 @@ func BenchmarkRadix_Get(b *testing.B) {
 		}
 	}
 }
+
+func TestRadix_wildcard(t *testing.T) {
+	t.Parallel()
+
+	paths := []string{
+		"/foo/baz",
+		"/foo/*",
+		"/foo/baz/fiz",
+		"/foo/bar",
+		"/foo",
+		"/foo/bar/qux/*",
+		"/111",
+		"/1*",
+		"/2/*",
+		"/2/3/4*",
+		"/2/3*",
+	}
+
+	pathsNoHandlers := []string{
+		"/3",
+		"/3*",
+		"/11/2*",
+		"/11/2345",
+		"/11/23456",
+	}
+
+	radix := &Radix{}
+	for idx, path := range paths {
+		radix.Add(path, idx)
+	}
+	for idx, path := range pathsNoHandlers {
+		radix.Add(path, idx*1000)
+	}
+
+	search := []string{
+		"/foo/baz",
+		"/foo/1",
+		"/foo/2",
+		"/foo/baz/fiz",
+		"/foo/bar",
+		"/foo",
+		"/foo/bar/qux/1",
+		"/foo/bar/qux/2",
+		"/111",
+		"/123",
+		"/123456789",
+		"/2/1",
+		"/2/2",
+		"/2/3/456",
+		"/2/3456",
+	}
+
+	for _, path := range search {
+		t.Run(path, func(t *testing.T) {
+			_, found := radix.Get(path)
+			if !found {
+				t.Errorf("expected to find %s", path)
+			}
+		})
+	}
+
+	//m := n.PathsHandlers()
+	//for _, path := range paths {
+	//	path = strings.ReplaceAll(path, "*", "$")
+	//	if _, ok := m[path]; !ok {
+	//		t.Errorf("expected %s path", path)
+	//	}
+	//}
+}
+
+func TestRadix_wildcard_special(t *testing.T) {
+	t.Parallel()
+
+	t.Run("/*", func(t *testing.T) {
+		radix := &Radix{}
+
+		paths := []string{
+			"/*",
+			"/foo",
+			"/fo*",
+			"/f",
+		}
+
+		for idx, path := range paths {
+			radix.Add(path, idx)
+		}
+
+		search := []string{
+			"/foobar",
+			"/foo",
+			"/f",
+			"/foo123",
+			"/123",
+		}
+
+		for _, path := range search {
+			_, found := radix.Get(path)
+			if !found {
+				t.Errorf("expected to find %s", path)
+			}
+		}
+
+		out := radix.root.leafs()
+		for path := range out {
+			t.Log(path)
+		}
+	})
+	t.Run("*", func(t *testing.T) {
+		radix := &Radix{}
+		paths := []string{
+			"*",
+		}
+
+		for idx, path := range paths {
+			radix.Add(path, idx)
+		}
+
+		search := []string{
+			"/anything",
+			"/",
+			"/goes",
+			"/test",
+			"/123",
+			"test",
+		}
+
+		for _, path := range search {
+			_, found := radix.Get(path)
+			if !found {
+				t.Errorf("expected to find %s", path)
+			}
+		}
+	})
+	t.Run("/test* /test search", func(t *testing.T) {
+		radix := &Radix{}
+
+		paths := []string{
+			"/foo*",
+		}
+
+		for idx, path := range paths {
+			radix.Add(path, idx)
+		}
+
+		search := []string{
+			"/foo",
+			"/foobar",
+		}
+
+		for _, path := range search {
+			_, found := radix.Get(path)
+			if !found {
+				t.Errorf("expected to find %s", path)
+			}
+		}
+	})
+}

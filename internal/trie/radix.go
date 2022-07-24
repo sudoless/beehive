@@ -7,22 +7,28 @@ import (
 )
 
 type radixNode struct {
-	data     any
-	path     []byte
-	pathFull []byte
-	children []*radixNode
-	lookup   []byte
+	data       any
+	path       []byte
+	pathFull   []byte
+	children   []*radixNode
+	lookup     []byte
+	isWildcard bool
 }
 
 func (node *radixNode) add(path []byte, data any) {
-	pathFull := path[:]
 	current := node
+	isWildcard := path[len(path)-1] == '*'
+	if isWildcard {
+		path = path[:len(path)-1]
+	}
+	pathFull := path[:]
 	commonIdx := commonPrefix(path, current.path)
 
 	for ; commonIdx == len(current.path); commonIdx = commonPrefix(path, current.path) {
 		if commonIdx == len(path) {
 			current.data = data
 			current.pathFull = pathFull
+			current.isWildcard = isWildcard
 			return
 		}
 
@@ -31,9 +37,10 @@ func (node *radixNode) add(path []byte, data any) {
 		if lookupIdx == -1 {
 			current.lookup = append(current.lookup, path[0])
 			current.children = append(current.children, &radixNode{
-				path:     path,
-				pathFull: pathFull,
-				data:     data,
+				path:       path,
+				pathFull:   pathFull,
+				data:       data,
+				isWildcard: isWildcard,
 			})
 			return
 		}
@@ -41,13 +48,9 @@ func (node *radixNode) add(path []byte, data any) {
 		current = current.children[lookupIdx]
 	}
 
-	self := &radixNode{
-		data:     current.data,
-		path:     current.path[commonIdx:],
-		pathFull: current.pathFull,
-		children: current.children,
-		lookup:   current.lookup,
-	}
+	self := &radixNode{}
+	*self = *current
+	self.path = current.path[commonIdx:]
 
 	current.pathFull = nil
 	current.path = current.path[:commonIdx]
@@ -55,17 +58,20 @@ func (node *radixNode) add(path []byte, data any) {
 		current.path = nil
 	}
 	current.data = nil
+	current.isWildcard = false
 
 	if commonIdx == len(path) {
 		current.children = []*radixNode{self}
 		current.lookup = []byte{self.path[0]}
 		current.data = data
 		current.pathFull = pathFull
+		current.isWildcard = isWildcard
 	} else {
 		child := &radixNode{
-			data:     data,
-			path:     path[commonIdx:],
-			pathFull: pathFull,
+			data:       data,
+			path:       path[commonIdx:],
+			pathFull:   pathFull,
+			isWildcard: isWildcard,
 		}
 
 		current.lookup = []byte{self.path[0], path[commonIdx]}
@@ -78,14 +84,23 @@ func (node *radixNode) get(path []byte) (any, bool) {
 		return nil, false
 	}
 
+	var wildcard *radixNode
 	current := node
 	ptr := commonPrefix(path, current.path)
 	pathLen := len(path)
 
 	for {
+		if current.isWildcard {
+			wildcard = current
+		}
+
 		if ptr >= pathLen {
 			if bytes.Equal(path, current.pathFull) {
 				return current.data, true
+			}
+
+			if wildcard != nil {
+				return wildcard.data, true
 			}
 
 			return nil, false
@@ -100,6 +115,10 @@ func (node *radixNode) get(path []byte) (any, bool) {
 		}
 
 		if lookupIdx == -1 {
+			if wildcard != nil {
+				return wildcard.data, true
+			}
+
 			return nil, false
 		}
 
@@ -136,16 +155,22 @@ func (radix *Radix) Add(path string, data any) {
 		return
 	}
 
-	pathBytes := []byte(path)[:]
 	if radix.root == nil {
-		radix.root = &radixNode{
-			path:     pathBytes,
-			pathFull: pathBytes,
-			data:     data,
+		isWildcard := path[len(path)-1] == '*'
+		if isWildcard {
+			path = path[:len(path)-1]
 		}
+
+		radix.root = &radixNode{
+			path:       []byte(path),
+			pathFull:   []byte(path),
+			data:       data,
+			isWildcard: isWildcard,
+		}
+		return
 	}
 
-	radix.root.add(pathBytes, data)
+	radix.root.add([]byte(path)[:], data)
 }
 
 func (radix Radix) Get(path string) (any, bool) {
