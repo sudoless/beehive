@@ -99,10 +99,6 @@ func (node *radixNode) get(path []byte) (any, bool) {
 				return current.data, true
 			}
 
-			if wildcard != nil {
-				return wildcard.data, true
-			}
-
 			return nil, false
 		}
 
@@ -115,16 +111,26 @@ func (node *radixNode) get(path []byte) (any, bool) {
 		}
 
 		if lookupIdx == -1 {
-			if wildcard != nil {
-				return wildcard.data, true
-			}
-
-			return nil, false
+			break
 		}
 
 		current = current.children[lookupIdx]
 		ptr += len(current.path)
 	}
+
+	if wildcard != nil {
+		if len(wildcard.pathFull) > pathLen {
+			return nil, false
+		}
+
+		if !bytes.Equal(wildcard.pathFull, path[:len(wildcard.pathFull)]) {
+			return nil, false
+		}
+
+		return wildcard.data, true
+	}
+
+	return nil, false
 }
 
 func (node *radixNode) leafs() map[string]any {

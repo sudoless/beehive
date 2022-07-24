@@ -364,14 +364,6 @@ func TestRadix_wildcard(t *testing.T) {
 			}
 		})
 	}
-
-	//m := n.PathsHandlers()
-	//for _, path := range paths {
-	//	path = strings.ReplaceAll(path, "*", "$")
-	//	if _, ok := m[path]; !ok {
-	//		t.Errorf("expected %s path", path)
-	//	}
-	//}
 }
 
 func TestRadix_wildcard_special(t *testing.T) {
@@ -457,6 +449,36 @@ func TestRadix_wildcard_special(t *testing.T) {
 			_, found := radix.Get(path)
 			if !found {
 				t.Errorf("expected to find %s", path)
+			}
+		}
+	})
+	t.Run("greedy", func(t *testing.T) {
+		radix := &Radix{}
+
+		paths := []string{
+			"/x/api_test/a/*",
+			"/y/api_test/b/*",
+		}
+
+		for idx, path := range paths {
+			radix.Add(path, idx)
+		}
+
+		search := map[string]any{
+			"/x/api_test/a/1": 0,
+			"/x/api_test/a/2": 0,
+			"/x/api_test/a/3": 0,
+			"/y/api_test/b/1": 1,
+			"/y/api_test/b/2": 1,
+			"/y/api_test/b/3": 1,
+			"/x/api_____/a/1": nil,
+			"/x/api_____/b/1": nil,
+		}
+
+		for path, want := range search {
+			got, _ := radix.Get(path)
+			if got != want {
+				t.Errorf("expected %s to be %v, got %v", path, want, got)
 			}
 		}
 	})
