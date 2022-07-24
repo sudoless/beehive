@@ -499,6 +499,10 @@ func BenchmarkRouter_ServeHTTP(b *testing.B) {
 	}
 
 	router := NewRouter()
+	router.Context = func(r *http.Request) context.Context {
+		return context.Background()
+	}
+
 	router.Handle("GET", "/foo/bar", func(ctx *Context) Responder {
 		return responder
 	})

@@ -7,6 +7,11 @@ import (
 	"go.sdls.io/beehive/internal/trie"
 )
 
+type methodGroup struct {
+	Name  string
+	radix trie.Radix
+}
+
 // Router is the core of the beehive package. It implements the Grouper interface for creating route groups or
 // for applying middlewares.
 type Router struct {
@@ -17,10 +22,7 @@ type Router struct {
 	// WhenNotFound is called when the route does not match or the matched route has 0 handlers.
 	WhenNotFound func(ctx *Context) Responder
 
-	// WhenMethodNotAllowed is called when the router has no routes defined for the requested method.
-	WhenMethodNotAllowed func(ctx *Context) Responder
-
-	// WhenContextDone is called when the context is "done" (canceled or timed out).
+	// WhenContextDone is called when the context is "done" (canceled, timed out, or other termination causes).
 	WhenContextDone func(ctx *Context) Responder
 
 	// Recover is called when a panic occurs inside ServeHTTP.
@@ -28,7 +30,7 @@ type Router struct {
 
 	AllowRouteOverwrite bool
 
-	routes trie.Radix
+	methods []methodGroup
 	group
 }
 
@@ -39,16 +41,12 @@ func NewRouter() *Router {
 		Recover: func(ctx *Context, panicErr any) Responder {
 			return defaultPanicResponder
 		},
-		WhenMethodNotAllowed: func(ctx *Context) Responder {
-			return defaultNotFoundResponder
-		},
 		WhenNotFound: func(ctx *Context) Responder {
 			return defaultNotFoundResponder
 		},
 		WhenContextDone: func(ctx *Context) Responder {
 			return defaultContextDoneResponder
 		},
-		routes: trie.Radix{},
 	}
 
 	router.group = group{
@@ -91,18 +89,30 @@ func (router *Router) serveHTTP(ctx *Context) {
 		}
 	}()
 
-	data, found := router.routes.Get(r.Method + r.URL.Path)
+	var radix *trie.Radix
+	for idx, method := range router.methods {
+		if method.Name == r.Method {
+			radix = &router.methods[idx].radix
+			break
+		}
+	}
+
+	if radix == nil {
+		router.respond(ctx, router.WhenNotFound(ctx))
+		return
+	}
+
+	data, found := radix.Get(r.URL.Path)
 	if !found {
 		router.respond(ctx, router.WhenNotFound(ctx))
 		return
 	}
 
-	handlers, ok := data.([]HandlerFunc)
-	if !ok || len(handlers) == 0 {
+	ctx.handlers = data.([]HandlerFunc)
+	if len(ctx.handlers) == 0 {
 		router.respond(ctx, router.WhenNotFound(ctx))
 		return
 	}
-	ctx.handlers = handlers
 
 	router.respond(ctx, router.next(ctx))
 }
