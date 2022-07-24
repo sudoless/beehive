@@ -7,7 +7,7 @@
 #      http://mozilla.org/MPL/2.0/.
 
 
-THIS_MAKEFILE_VERSION = v0.0.2
+THIS_MAKEFILE_VERSION = v0.1.0
 THIS_MAKEFILE_UPDATE = master
 THIS_MAKEFILE := $(lastword $(MAKEFILE_LIST))
 THIS_MAKEFILE_URL_BASE := https://raw.githubusercontent.com/sudoless/make/$(THIS_MAKEFILE_UPDATE)
@@ -29,6 +29,7 @@ export FMT_WARN := \033[33;1m
 export FMT_END  := \033[0m
 export FMT_PRFX := $(FMT_MISC)=>$(FMT_END)
 
+export WHOAMI ?= $(shell whoami)
 
 # GIT
 ifneq ("$(wildcard .git/)","") # check .git/ exists
@@ -38,16 +39,19 @@ export GIT_VERSION := $(GIT_TAG)
 export GIT_LATEST_HASH := $(shell git rev-parse --short HEAD)
 export GIT_LATEST_COMMIT_DATE := $(shell git log -1 --format=%cd --date=format:"%Y%m%d")
 export GIT_CHANGES := $(shell git rev-list $(GIT_TAG)..HEAD --count)
+export GIT_BRANCH := $(shell git rev-parse --abbrev-ref HEAD)
 
 ifneq ($(GIT_LATEST_HASH),$(GIT_TAG_HASH))
-	GIT_VERSION := $(GIT_VERSION)-wip$(GIT_CHANGES).$(GIT_LATEST_HASH)
+	export GIT_VERSION := $(GIT_VERSION)-wip$(GIT_CHANGES).$(GIT_LATEST_HASH)
 endif
 ifeq ($(GIT_VERSION),)
-	GIT_VERSION := -new.$(GIT_LATEST_HASH).$(GIT_LATEST_COMMIT_DATE)
+	export GIT_VERSION := -new.$(GIT_LATEST_HASH).$(GIT_LATEST_COMMIT_DATE)
+endif
+ifneq ($(GIT_BRANCH),master)
+	export GIT_VERSION := $(GIT_VERSION)-$(GIT_BRANCH)
 endif
 ifneq ($(shell git status --porcelain),)
-	GIT_VERSION := $(GIT_VERSION)-dirty.$(GIT_LATEST_COMMIT_DATE).$$(whoami)
-endif
+	export GIT_VERSION := $(GIT_VERSION)-dirty.$(GIT_LATEST_COMMIT_DATE).$(WHOAMI)
 endif
 
 # SEMVER
@@ -62,12 +66,13 @@ export SV_MICRO_NEXT_1    	:= $(shell echo $$(($(SV_MICRO)+1)))
 export SV_MICRO_NEXT      	:= $(shell echo $$(($(SV_MICRO)+$(GIT_CHANGES))))
 export SV_GIT_MSG 			:= 'Bumping'
 export SV_GIT_FLAGS			:= -a -m $(SV_GIT_MSG)
+endif
+
 
 # BUILD
 export BUILD_HASH		?= $(GIT_LATEST_HASH)
 export BUILD_TIME		?= $$(date +%s)
 export BUILD_VERSION	?= $(GIT_VERSION)
-
 
 # IMPORTS
 THIS_IMPORT_DIR ?= ./make
@@ -87,6 +92,7 @@ add/%: $(THIS_IMPORT_DIR)/%.$(THIS_IMPORT_EXT) ## add a new "import" makefile
 	@printf "$(FMT_PRFX) done\n"
 
 # not phony, because we do not want to overwrite existing imports
+.PRECIOUS: $(THIS_IMPORT_DIR)/%.$(THIS_IMPORT_EXT)
 $(THIS_IMPORT_DIR)/%.$(THIS_IMPORT_EXT): $(THIS_IMPORT_DIR)
 	@printf "$(FMT_PRFX) adding import $(FMT_OK)$*$(FMT_END)\n"
 	@printf "$(FMT_PRFX) downloading from $(FMT_INFO)$(THIS_MAKEFILE_URL_BASE)/$*.$(THIS_IMPORT_EXT)$(FMT_END)\n"

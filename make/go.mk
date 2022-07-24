@@ -7,7 +7,7 @@
 #      http://mozilla.org/MPL/2.0/.
 
 
-THIS_MAKEFILE_VERSION = v0.2.1
+THIS_MAKEFILE_VERSION = v0.2.2
 THIS_MAKEFILE_UPDATE = master
 THIS_MAKEFILE := $(lastword $(MAKEFILE_LIST))
 THIS_MAKEFILE_URL := https://raw.githubusercontent.com/sudoless/make/$(THIS_MAKEFILE_UPDATE)/go.mk
@@ -33,13 +33,13 @@ endif
 
 # DEV DEPS
 DEV_EXTERNAL_TOOLS=\
-	github.com/golangci/golangci-lint/cmd/golangci-lint@v1.43.0 \
-	github.com/securego/gosec/v2/cmd/gosec@v2.9.5 \
-	github.com/fzipp/gocyclo/cmd/gocyclo@v0.4.0 \
-	github.com/jstemmer/go-junit-report@v0.9.1 \
-	golang.org/x/tools/go/analysis/passes/fieldalignment/cmd/fieldalignment@v0.1.8 \
-	mvdan.cc/gofumpt@v0.2.1 \
-	gotest.tools/gotestsum@v1.7.0
+	github.com/golangci/golangci-lint/cmd/golangci-lint@latest \
+	github.com/securego/gosec/v2/cmd/gosec@latest \
+	github.com/fzipp/gocyclo/cmd/gocyclo@latest \
+	github.com/jstemmer/go-junit-report@latest \
+	golang.org/x/tools/go/analysis/passes/fieldalignment/cmd/fieldalignment@latest \
+	mvdan.cc/gofumpt@latest \
+	gotest.tools/gotestsum@latest
 
 # OTHER
 SHA256 ?= shasum -a 256
