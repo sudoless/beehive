@@ -1,11 +1,5 @@
 package beehive
 
-import (
-	"fmt"
-
-	"go.sdls.io/beehive/internal/node"
-)
-
 // Grouper implements the abstraction layer for applying a handler or middleware on a group of routes.
 type Grouper interface {
 	Group(pathPrefix string, middleware ...HandlerFunc) Grouper
@@ -46,15 +40,15 @@ func (g *group) Handle(method, path string, handlers ...HandlerFunc) Grouper {
 		panic("beehive: router handler is empty")
 	}
 
-	root, ok := g.router.methods[method]
-	if !ok {
-		root = &node.Trie{}
-		g.router.methods[method] = root
+	fullPath := method + g.prefix + path
+	if !g.router.AllowRouteOverwrite {
+		_, found := g.router.routes.Get(fullPath)
+		if found {
+			panic("beehive: router route already defined")
+		}
 	}
 
-	if err := root.Add(g.prefix+path, append(g.middleware, handlers...)); err != nil {
-		panic(fmt.Errorf("beehive: router Handle '%s' '%s': %w", method, g.prefix+path, err))
-	}
+	g.router.routes.Add(fullPath, append(g.middleware, handlers...))
 
 	return g
 }

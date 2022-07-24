@@ -4,7 +4,7 @@ import (
 	"context"
 	"net/http"
 
-	"go.sdls.io/beehive/internal/node"
+	"go.sdls.io/beehive/internal/trie"
 )
 
 // Router is the core of the beehive package. It implements the Grouper interface for creating route groups or
@@ -26,14 +26,15 @@ type Router struct {
 	// Recover is called when a panic occurs inside ServeHTTP.
 	Recover func(ctx *Context, panicErr any) Responder
 
-	methods map[string]*node.Trie
+	AllowRouteOverwrite bool
+
+	routes trie.Radix
 	group
 }
 
 // NewRouter returns an empty router with only the DefaultContext function.
 func NewRouter() *Router {
 	router := &Router{
-		methods: make(map[string]*node.Trie),
 		Context: DefaultContext,
 		Recover: func(ctx *Context, panicErr any) Responder {
 			return defaultPanicResponder
@@ -47,6 +48,7 @@ func NewRouter() *Router {
 		WhenContextDone: func(ctx *Context) Responder {
 			return defaultContextDoneResponder
 		},
+		routes: trie.Radix{},
 	}
 
 	router.group = group{
@@ -89,20 +91,13 @@ func (router *Router) serveHTTP(ctx *Context) {
 		}
 	}()
 
-	root := router.methods[r.Method]
-	if root == nil {
-		router.respond(ctx, router.WhenMethodNotAllowed(ctx))
-		return
-	}
-
-	path := r.URL.Path
-	n, err := root.Get(path)
-	if err != nil {
+	data, found := router.routes.Get(r.Method + r.URL.Path)
+	if !found {
 		router.respond(ctx, router.WhenNotFound(ctx))
 		return
 	}
 
-	handlers, ok := n.Data().([]HandlerFunc)
+	handlers, ok := data.([]HandlerFunc)
 	if !ok || len(handlers) == 0 {
 		router.respond(ctx, router.WhenNotFound(ctx))
 		return
