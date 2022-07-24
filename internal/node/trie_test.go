@@ -1,6 +1,7 @@
 package node
 
 import (
+	"bytes"
 	"strings"
 	"testing"
 )
@@ -496,6 +497,102 @@ func Test_node_add_wildcard_edge_case(t *testing.T) {
 				t.Errorf("error walking to node '%s', %v", path, err)
 			}
 			_ = found
+		}
+	})
+}
+
+func lookupSlice(value byte, slice []byte) int {
+	for idx, lookup := range slice {
+		if value == lookup {
+			return idx
+		}
+	}
+	return -1
+}
+
+func Benchmark_lookup(b *testing.B) {
+	b.Run("map_small", func(b *testing.B) {
+		queries := []byte{'j', 'a', 'z', 'b', 'c', 'd', '9'}
+
+		m := map[byte]int{
+			'j': 0,
+			'a': 1,
+			'z': 2,
+		}
+		b.ResetTimer()
+
+		for iter := 0; iter < b.N; iter++ {
+			for _, q := range queries {
+				_ = m[q]
+			}
+		}
+	})
+
+	b.Run("map_large", func(b *testing.B) {
+		queries := []byte{'j', 'a', 'z', 'b', 'c', 'd', '9'}
+
+		m := map[byte]int{}
+		for idx, value := range []byte("abcdefghijklmnopqrstuvwxyz0123456789") {
+			m[value] = idx
+		}
+		b.ResetTimer()
+
+		for iter := 0; iter < b.N; iter++ {
+			for _, q := range queries {
+				_ = m[q]
+			}
+		}
+	})
+
+	b.Run("slice_small", func(b *testing.B) {
+		queries := []byte{'j', 'a', 'z', 'b', 'c', 'd', '9'}
+		slice := []byte{'j', 'a', 'z'}
+
+		b.ResetTimer()
+
+		for iter := 0; iter < b.N; iter++ {
+			for _, q := range queries {
+				_ = lookupSlice(q, slice)
+			}
+		}
+	})
+
+	b.Run("slice_large", func(b *testing.B) {
+		queries := []byte{'j', 'a', 'z', 'b', 'c', 'd', '9'}
+		slice := []byte("abcdefghijklmnopqrstuvwxyz0123456789")
+
+		b.ResetTimer()
+
+		for iter := 0; iter < b.N; iter++ {
+			for _, q := range queries {
+				_ = lookupSlice(q, slice)
+			}
+		}
+	})
+
+	b.Run("bindex_small", func(b *testing.B) {
+		queries := []byte{'j', 'a', 'z', 'b', 'c', 'd', '9'}
+		slice := []byte{'j', 'a', 'z'}
+
+		b.ResetTimer()
+
+		for iter := 0; iter < b.N; iter++ {
+			for _, q := range queries {
+				_ = bytes.IndexByte(slice, q)
+			}
+		}
+	})
+
+	b.Run("bindex_large", func(b *testing.B) {
+		queries := []byte{'j', 'a', 'z', 'b', 'c', 'd', '9'}
+		slice := []byte("abcdefghijklmnopqrstuvwxyz0123456789")
+
+		b.ResetTimer()
+
+		for iter := 0; iter < b.N; iter++ {
+			for _, q := range queries {
+				_ = bytes.IndexByte(slice, q)
+			}
 		}
 	})
 }
