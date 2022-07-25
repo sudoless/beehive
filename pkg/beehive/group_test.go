@@ -13,7 +13,7 @@ func TestRouter_Group(t *testing.T) {
 	h := func(msg string) HandlerFunc {
 		return func(_ *Context) Responder {
 			return &DefaultResponder{
-				Message: []byte(msg),
+				Message: msg,
 				Status:  http.StatusOK,
 			}
 		}
@@ -22,7 +22,7 @@ func TestRouter_Group(t *testing.T) {
 	m := func(ctx *Context) Responder {
 		if ctx.Request.Header.Get("X-Test-Auth") != "yes" {
 			return &DefaultResponder{
-				Message: []byte("unauthorized"),
+				Message: "unauthorized",
 				Status:  http.StatusUnauthorized,
 			}
 		}
@@ -186,13 +186,13 @@ func TestGroup_Handle_emptyPath(t *testing.T) {
 	g := router.Group("/has/prefix")
 	g.Handle("GET", "", func(_ *Context) Responder {
 		return &DefaultResponder{
-			Message: []byte("empty group path 1"),
+			Message: "empty group path 1",
 			Status:  200,
 		}
 	})
 	g.Handle("GET", "/", func(_ *Context) Responder {
 		return &DefaultResponder{
-			Message: []byte("empty group path 2"),
+			Message: "empty group path 2",
 			Status:  200,
 		}
 	})
@@ -225,7 +225,7 @@ func TestGroup_Handle_emptyPath_noPrefix(t *testing.T) {
 	g := router.Group("")
 	g.Handle("GET", "", func(_ *Context) Responder {
 		return &DefaultResponder{
-			Message: []byte("empty group path 1"),
+			Message: "empty group path 1",
 			Status:  200,
 		}
 	})

@@ -22,7 +22,7 @@ func TestCORS(t *testing.T) {
 	}
 
 	ok := &beehive.DefaultResponder{
-		Message: []byte("ok"),
+		Message: "ok",
 		Status:  http.StatusOK,
 	}
 

@@ -15,13 +15,20 @@ type JSON struct {
 	data []byte
 }
 
+// test that JSON implements the beehive.Responder interface
+var _ beehive.Responder = &JSON{}
+
 func (j *JSON) StatusCode(_ *beehive.Context) int {
 	return j.Code
 }
 
-func (j *JSON) Body(ctx *beehive.Context) []byte {
+func (j *JSON) Respond(ctx *beehive.Context) {
+	w := ctx.ResponseWriter
+	w.WriteHeader(j.Code)
+
 	if j.data != nil {
-		return j.data
+		_, _ = w.Write(j.data)
+		return
 	}
 
 	h := ctx.ResponseWriter.Header()
@@ -33,5 +40,5 @@ func (j *JSON) Body(ctx *beehive.Context) []byte {
 	}
 
 	j.data = data
-	return data
+	_, _ = w.Write(data)
 }

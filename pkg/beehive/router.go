@@ -85,7 +85,9 @@ func (router *Router) serveHTTP(ctx *Context) {
 
 	defer func() {
 		if err := recover(); err != nil {
-			router.respond(ctx, router.Recover(ctx, err))
+			if res := router.Recover(ctx, err); res != nil {
+				res.Respond(ctx)
+			}
 		}
 	}()
 
@@ -98,37 +100,31 @@ func (router *Router) serveHTTP(ctx *Context) {
 	}
 
 	if radix == nil {
-		router.respond(ctx, router.WhenNotFound(ctx))
+		if res := router.WhenNotFound(ctx); res != nil {
+			res.Respond(ctx)
+		}
 		return
 	}
 
 	data, found := radix.Get(r.URL.Path)
 	if !found {
-		router.respond(ctx, router.WhenNotFound(ctx))
+		if res := router.WhenNotFound(ctx); res != nil {
+			res.Respond(ctx)
+		}
 		return
 	}
 
 	ctx.handlers = data.([]HandlerFunc)
 	if len(ctx.handlers) == 0 {
-		router.respond(ctx, router.WhenNotFound(ctx))
+		if res := router.WhenNotFound(ctx); res != nil {
+			res.Respond(ctx)
+		}
 		return
 	}
 
-	router.respond(ctx, router.next(ctx))
-}
-
-func (router *Router) respond(ctx *Context, res Responder) {
-	if res == nil {
-		return
-	}
-
-	body := res.Body(ctx)
-
-	w := ctx.ResponseWriter
-	w.WriteHeader(res.StatusCode(ctx))
-
-	if body != nil {
-		_, _ = w.Write(body)
+	res := router.next(ctx)
+	if res != nil {
+		res.Respond(ctx)
 	}
 }
 

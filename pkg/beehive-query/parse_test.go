@@ -53,7 +53,7 @@ func Test_ValuesParser(t *testing.T) {
 			}
 
 			return &beehive.DefaultResponder{
-				Message: message.Bytes(),
+				Message: message.String(),
 				Status:  http.StatusOK,
 			}
 		})

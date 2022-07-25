@@ -95,12 +95,9 @@ func (t testContextContractResponder) StatusCode(ctx *Context) int {
 	return http.StatusAccepted
 }
 
-func (t testContextContractResponder) Body(_ *Context) []byte {
-	return nil
-}
-
-func (t testContextContractResponder) Cookies(_ *Context) []*http.Cookie {
-	return nil
+func (t testContextContractResponder) Respond(ctx *Context) {
+	ctx.ResponseWriter.WriteHeader(t.StatusCode(ctx))
+	return
 }
 
 func testContextContractMiddleware(ctx *Context) Responder {

@@ -42,7 +42,7 @@ func TestRateLimit(t *testing.T) {
 		counter++
 
 		return &beehive.DefaultResponder{
-			Message: []byte("ok"),
+			Message: "ok",
 			Status:  http.StatusOK,
 		}
 	}
@@ -58,7 +58,7 @@ func TestRateLimit(t *testing.T) {
 		Limit("X-Ip", testLimiter, 100, func(_ string, _, _ int, _ time.Time) beehive.Responder {
 			return &beehive.DefaultResponder{
 				Status:  http.StatusTooManyRequests,
-				Message: []byte("limited"),
+				Message: "limited",
 			}
 		}),
 		handler)
@@ -123,7 +123,7 @@ func TestRateLimit_noKey(t *testing.T) {
 		counter++
 
 		return &beehive.DefaultResponder{
-			Message: []byte("ok"),
+			Message: "ok",
 			Status:  http.StatusOK,
 		}
 	}

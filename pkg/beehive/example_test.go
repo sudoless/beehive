@@ -45,7 +45,7 @@ func Example_routerHandlerFunc() {
 	// defined beehive.HandlerFunc which will return the string "Hello, World!" as the response body and a 200 status
 	router.Handle("GET", "/my/path", func(ctx *beehive.Context) beehive.Responder {
 		return &beehive.DefaultResponder{
-			Message: []byte("Hello World!"),
+			Message: "Hello World!",
 			Status:  200,
 		}
 	})
@@ -76,7 +76,7 @@ func Example_grouping() {
 	// define a simple handler func
 	hello := func(ctx *beehive.Context) beehive.Responder {
 		return &beehive.DefaultResponder{
-			Message: []byte("Hello World!"),
+			Message: "Hello World!",
 			Status:  200,
 		}
 	}
@@ -84,7 +84,7 @@ func Example_grouping() {
 	// define a simple handler func for our other group
 	helloInternal := func(ctx *beehive.Context) beehive.Responder {
 		return &beehive.DefaultResponder{
-			Message: []byte("Hello Internal!"),
+			Message: "Hello Internal!",
 			Status:  200,
 		}
 	}
@@ -142,7 +142,7 @@ func Example_middleware() {
 		if !ok {
 			// if none, return 401
 			return &beehive.DefaultResponder{
-				Message: []byte("Unauthorized"),
+				Message: "Unauthorized",
 				Status:  401,
 			}
 		}
@@ -151,7 +151,7 @@ func Example_middleware() {
 		if user != "admin" || pass != "secret" {
 			// if not matching, return 401
 			return &beehive.DefaultResponder{
-				Message: []byte("Unauthorized"),
+				Message: "Unauthorized",
 				Status:  401,
 			}
 		}
@@ -163,7 +163,7 @@ func Example_middleware() {
 	// define the handler func we want to protect with our checkAuth middleware
 	secretResource := func(ctx *beehive.Context) beehive.Responder {
 		return &beehive.DefaultResponder{
-			Message: []byte("Secret Resource"),
+			Message: "Secret Resource",
 			Status:  200,
 		}
 	}
@@ -216,7 +216,7 @@ func Example_context() {
 	// define a handler func that takes the value from the context and returns it
 	router.Handle("GET", "/router_name", func(ctx *beehive.Context) beehive.Responder {
 		return &beehive.DefaultResponder{
-			Message: []byte(ctx.Value("router_name").(string)),
+			Message: ctx.Value("router_name").(string),
 			Status:  200,
 		}
 	})
@@ -262,7 +262,7 @@ func Example_contextMiddleware() {
 		}
 
 		return &beehive.DefaultResponder{
-			Message: []byte(fmt.Sprintf("Hello, '%s'!", user.(string))),
+			Message: fmt.Sprintf("Hello, '%s'!", user.(string)),
 			Status:  200,
 		}
 	}
@@ -330,7 +330,7 @@ func Example_middlewareNext() {
 	{
 		api.Handle("GET", "/fast", func(ctx *beehive.Context) beehive.Responder {
 			return &beehive.DefaultResponder{
-				Message: []byte("fast"),
+				Message: "fast",
 				Status:  200,
 			}
 		})
@@ -338,7 +338,7 @@ func Example_middlewareNext() {
 		api.Handle("GET", "/slow", func(ctx *beehive.Context) beehive.Responder {
 			time.Sleep(time.Millisecond * 100)
 			return &beehive.DefaultResponder{
-				Message: []byte("slow"),
+				Message: "slow",
 				Status:  418,
 			}
 		})

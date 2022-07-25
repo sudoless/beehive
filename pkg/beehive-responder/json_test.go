@@ -61,7 +61,20 @@ func TestJSON(t *testing.T) {
 		t.Errorf("expected content type 'application/json', got '%s'", w.Header().Get("Content-Type"))
 	}
 
-	if string(responder.Body(nil)) != want {
-		t.Errorf("expected body '%s', got '%s'", want, string(responder.Body(nil)))
+	if string(responder.data) != want {
+		t.Errorf("expected data '%s', got '%s'", want, string(responder.data))
+	}
+
+	w = httptest.NewRecorder()
+	responder.Respond(&beehive.Context{
+		ResponseWriter: w,
+	})
+
+	if w.Body.String() != want {
+		t.Errorf("expected body '%s', got '%s'", want, w.Body.String())
+	}
+
+	if responder.StatusCode(nil) != w.Code {
+		t.Errorf("expected status code %d, got %d", w.Code, responder.StatusCode(nil))
 	}
 }

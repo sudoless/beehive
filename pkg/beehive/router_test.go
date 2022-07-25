@@ -51,7 +51,7 @@ func TestRouter_request_next(t *testing.T) {
 		}
 
 		return &DefaultResponder{
-			Message: []byte("solved"),
+			Message: "solved",
 			Status:  200,
 		}
 	}
@@ -192,7 +192,7 @@ func TestRouter_context(t *testing.T) {
 		router := NewRouter()
 		router.WhenContextDone = func(_ *Context) Responder {
 			return &DefaultResponder{
-				Message: []byte("ok"),
+				Message: "ok",
 				Status:  http.StatusTeapot,
 			}
 		}
@@ -256,7 +256,7 @@ func TestRouter_recovery(t *testing.T) {
 			}
 
 			return &DefaultResponder{
-				Message: nil,
+				Message: "",
 				Status:  http.StatusTeapot,
 			}
 		}
@@ -356,7 +356,7 @@ func Test_ResponseWriter(t *testing.T) {
 	router := NewRouter()
 	router.Handle("GET", "/foo", middleware, func(_ *Context) Responder {
 		return &DefaultResponder{
-			Message: []byte("ok"),
+			Message: "ok",
 			Status:  http.StatusOK,
 		}
 	})
@@ -395,7 +395,7 @@ func TestRouter_InServer_Shutdown(t *testing.T) {
 		atomic.AddInt32(&counter, 1)
 
 		return &DefaultResponder{
-			Message: []byte("ok"),
+			Message: "ok",
 			Status:  http.StatusAccepted,
 		}
 	})
@@ -494,7 +494,7 @@ func (n noopResponseWriter) WriteHeader(_ int) {}
 
 func BenchmarkRouter_ServeHTTP(b *testing.B) {
 	responder := &DefaultResponder{
-		Message: []byte("ok"),
+		Message: "ok",
 		Status:  200,
 	}
 
@@ -547,7 +547,7 @@ func TestRouter_ServeHTTP_contextDone(t *testing.T) {
 	router.Handle("GET", "/foo", middleware1, middleware2, func(ctx *Context) Responder {
 		trace = append(trace, "handler")
 		return &DefaultResponder{
-			Message: []byte("ok"),
+			Message: "ok",
 			Status:  200,
 		}
 	})
@@ -572,60 +572,5 @@ func TestRouter_ServeHTTP_contextDone(t *testing.T) {
 	}
 	if w.Body.String() != "context terminated" {
 		t.Errorf("expected %s, got %s", "context terminated", w.Body.String())
-	}
-}
-
-type testResponderOrder struct {
-	statusCode int
-	body       int
-	callback   func(string)
-}
-
-func (t *testResponderOrder) StatusCode(_ *Context) int {
-	t.callback("statusCode")
-	t.statusCode++
-	return 200
-}
-
-func (t *testResponderOrder) Body(_ *Context) []byte {
-	t.callback("body")
-	t.body++
-	return []byte("ok")
-}
-
-func TestRouter_ServeHTTP_ResponderOrder(t *testing.T) {
-	t.Parallel()
-
-	count := 0
-	responder := &testResponderOrder{
-		statusCode: 0,
-		body:       0,
-		callback: func(s string) {
-			if s == "body" && count != 0 {
-				t.Errorf("expected 'body' callback at count %d, got %d", 0, count)
-			}
-			if s == "statusCode" && count != 1 {
-				t.Errorf("expected 'statusCode' callback at count %d, got %d", 1, count)
-			}
-			count++
-		},
-	}
-
-	router := NewRouter()
-	router.Handle("GET", "/foo", func(ctx *Context) Responder {
-		return responder
-	})
-
-	r := httptest.NewRequest(http.MethodGet, "/foo", nil)
-	w := httptest.NewRecorder()
-
-	router.ServeHTTP(w, r)
-
-	if responder.statusCode != 1 {
-		t.Errorf("expected %d, got %d", 1, responder.statusCode)
-	}
-
-	if responder.body != 1 {
-		t.Errorf("expected %d, got %d", 1, responder.body)
 	}
 }

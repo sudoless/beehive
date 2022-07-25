@@ -33,15 +33,15 @@ func testBeesLogger(w io.Writer) beehive.HandlerFunc {
 
 func testBeesAuther(users map[string]string) beehive.HandlerFunc {
 	authMissing := &beehive.DefaultResponder{
-		Message: []byte("missing auth"),
+		Message: "missing auth",
 		Status:  http.StatusUnauthorized,
 	}
 	authUserNotFound := &beehive.DefaultResponder{
-		Message: []byte("user not found"),
+		Message: "user not found",
 		Status:  http.StatusUnauthorized,
 	}
 	authUserBadPassword := &beehive.DefaultResponder{
-		Message: []byte("bad password"),
+		Message: "bad password",
 		Status:  http.StatusUnauthorized,
 	}
 
@@ -88,7 +88,7 @@ func testBeesWithJsonBody[T any]() beehive.HandlerFunc {
 
 		if err := json.Unmarshal(body, &data); err != nil {
 			return &beehive.DefaultResponder{
-				Message: []byte(fmt.Sprintf("bad json: %s", err)),
+				Message: fmt.Sprintf("bad json: %s", err),
 				Status:  http.StatusBadRequest,
 			}
 		}
@@ -113,13 +113,13 @@ func testBeesHandleHives(hives map[string]*BeesHive) beehive.HandlerFunc {
 			hive, ok := hives[ctx.Request.URL.Query().Get("name")]
 			if !ok {
 				return &beehive.DefaultResponder{
-					Message: []byte("hive not found"),
+					Message: "hive not found",
 					Status:  http.StatusNotFound,
 				}
 			}
 
 			return &beehive.DefaultResponder{
-				Message: []byte(fmt.Sprintf("%d", hive.Bees*3)),
+				Message: fmt.Sprintf("%d", hive.Bees*3),
 				Status:  200,
 			}
 		}

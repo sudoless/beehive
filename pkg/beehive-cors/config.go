@@ -49,7 +49,7 @@ func (c *Config) HandlerFunc(preFlight bool) beehive.HandlerFunc {
 	}
 
 	responderForbidden := &beehive.DefaultResponder{
-		Message: []byte("cors forbidden"),
+		Message: "cors forbidden",
 		Status:  http.StatusForbidden,
 	}
 
