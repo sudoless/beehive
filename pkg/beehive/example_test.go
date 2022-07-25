@@ -210,7 +210,7 @@ func Example_context() {
 
 	// assign a context function
 	router.Context = func(r *http.Request) context.Context {
-		return context.WithValue(context.Background(), "router_name", "🍯")
+		return context.WithValue(context.Background(), "router_name", "🍯") //nolint:staticcheck
 	}
 
 	// define a handler func that takes the value from the context and returns it

@@ -148,7 +148,7 @@ func Test_Bees(t *testing.T) {
 	var idCounter int64
 	router.Context = func(r *http.Request) context.Context {
 		idCounter++
-		return context.WithValue(context.Background(), "__id", idCounter)
+		return context.WithValue(context.Background(), "__id", idCounter) //nolint:staticcheck
 	}
 
 	api := router.Group("/api", testBeesLogger(logBuffer), testBeesAuther(users))

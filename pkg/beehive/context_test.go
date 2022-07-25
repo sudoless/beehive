@@ -97,7 +97,6 @@ func (t testContextContractResponder) StatusCode(ctx *Context) int {
 
 func (t testContextContractResponder) Respond(ctx *Context) {
 	ctx.ResponseWriter.WriteHeader(t.StatusCode(ctx))
-	return
 }
 
 func testContextContractMiddleware(ctx *Context) Responder {
@@ -107,7 +106,7 @@ func testContextContractMiddleware(ctx *Context) Responder {
 func TestContextContract(t *testing.T) {
 	t.Parallel()
 
-	myCtx := context.WithValue(context.Background(), "foo", "bar")
+	myCtx := context.WithValue(context.Background(), "foo", "bar") //nolint:staticcheck
 
 	router := NewRouter()
 	router.Context = func(Request *http.Request) context.Context {
