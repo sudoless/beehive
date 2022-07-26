@@ -47,7 +47,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/sudoless/beehive/pkg/beehive"
+	"go.sdls.io/beehive/pkg/beehive"
 )
 
 
@@ -71,7 +71,7 @@ func main() {
 
 func hello(_ *beehive.Context) beehive.Responder {
 	return &beehive.DefaultResponder{
-		Message: []byte("Hello, World!"),
+		Message: "Hello, World!",
 		Status:  200,
 	}
 }

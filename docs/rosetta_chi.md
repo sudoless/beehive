@@ -37,7 +37,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/sudoless/beehive/pkg/beehive"
+	"go.sdls.io/beehive/pkg/beehive"
 )
 
 
@@ -45,7 +45,7 @@ func main() {
 	bee := beehive.NewRouter()
 	bee.Handle("GET", "/", loggerMiddleware, func(ctx *beehive.Context) beehive.Responder {
 		return &beehive.DefaultResponder{
-            Message: []byte("welcome"),
+            Message: "welcome",
             Status:  200,
         }
 	})

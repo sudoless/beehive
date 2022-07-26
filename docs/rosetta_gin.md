@@ -35,7 +35,7 @@ package main
 import (
 	"net/http"
 
-	"github.com/sudoless/beehive/pkg/beehive"
+	"go.sdls.io/beehive/pkg/beehive"
 )
 
 
@@ -47,7 +47,7 @@ func main() {
 		h.Set("Content-Type", "application/json")
 
 		return &beehive.DefaultResponder{
-			Message: []byte(`{"message": "pong"}`),
+			Message: `{"message": "pong"}`,
 			Status:  200,
 		}
 	})
