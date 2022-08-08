@@ -631,3 +631,48 @@ func TestRouter_After(t *testing.T) {
 		t.Fatal("expected after to be ran")
 	}
 }
+
+func TestRouter_After_panic(t *testing.T) {
+	t.Parallel()
+
+	router := NewRouter()
+	router.Context = func(r *http.Request) context.Context {
+		return context.WithValue(context.Background(), "foo", "bar")
+	}
+
+	ran := false
+	router.After = func(ctx *Context, res Responder) {
+		ran = true
+
+		if ctx.Value("foo").(string) != "bar" {
+			t.Errorf("expected %s, got %s", "bar", ctx.Value("foo"))
+		}
+
+		if res == nil {
+			t.Fatal("expected responder, got nil")
+		}
+
+		if res.StatusCode(ctx) != 500 {
+			t.Errorf("expected %d, got %d", 500, res.StatusCode(ctx))
+		}
+	}
+	router.Recover = func(ctx *Context, err any) Responder {
+		return &DefaultResponder{
+			Message: "panic",
+			Status:  500,
+		}
+	}
+
+	router.Handle("GET", "/foo", func(_ *Context) Responder {
+		panic(456)
+	})
+
+	w := httptest.NewRecorder()
+	r := httptest.NewRequest(http.MethodGet, "/foo", nil)
+
+	router.ServeHTTP(w, r)
+
+	if !ran {
+		t.Fatal("expected after to be ran")
+	}
+}
