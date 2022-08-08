@@ -574,3 +574,60 @@ func TestRouter_ServeHTTP_contextDone(t *testing.T) {
 		t.Errorf("expected %s, got %s", "context terminated", w.Body.String())
 	}
 }
+
+type testResponderAfter struct {
+	Value int
+}
+
+func (t testResponderAfter) Respond(ctx *Context) {
+	ctx.ResponseWriter.WriteHeader(http.StatusOK)
+	_, _ = ctx.ResponseWriter.Write([]byte("ok"))
+}
+
+func (t testResponderAfter) StatusCode(_ *Context) int {
+	return http.StatusOK
+}
+
+func TestRouter_After(t *testing.T) {
+	t.Parallel()
+
+	router := NewRouter()
+	router.Context = func(r *http.Request) context.Context {
+		return context.WithValue(context.Background(), "foo", "bar")
+	}
+
+	ran := false
+	router.After = func(ctx *Context, res Responder) {
+		ran = true
+
+		if ctx.Value("foo").(string) != "bar" {
+			t.Errorf("expected %s, got %s", "bar", ctx.Value("foo"))
+		}
+
+		if res == nil {
+			t.Fatal("expected responder, got nil")
+		}
+
+		resV, ok := res.(testResponderAfter)
+		if !ok {
+			t.Fatalf("expected testResponderAfter, got %v", res)
+		}
+
+		if resV.Value != 123 {
+			t.Errorf("expected %d, got %d", 123, resV.Value)
+		}
+	}
+
+	router.Handle("GET", "/foo", func(_ *Context) Responder {
+		return testResponderAfter{Value: 123}
+	})
+
+	w := httptest.NewRecorder()
+	r := httptest.NewRequest(http.MethodGet, "/foo", nil)
+
+	router.ServeHTTP(w, r)
+
+	if !ran {
+		t.Fatal("expected after to be ran")
+	}
+}

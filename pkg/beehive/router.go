@@ -28,6 +28,12 @@ type Router struct {
 	// Recover is called when a panic occurs inside ServeHTTP.
 	Recover func(ctx *Context, panicErr any) Responder
 
+	// After is called after the request is handled and the response is sent. The *Context is still valid at this point.
+	// The Responder is the response that was sent. If no response was sent, the Responder is nil. This method can be
+	// used to do any cleanup without delaying the response.
+	After func(ctx *Context, res Responder)
+
+	// AllowRouteOverwrite allows setting the same route multiple times. Not recommended.
 	AllowRouteOverwrite bool
 
 	methods []methodGroup
@@ -125,6 +131,10 @@ func (router *Router) serveHTTP(ctx *Context) {
 	res := router.next(ctx)
 	if res != nil {
 		res.Respond(ctx)
+	}
+
+	if router.After != nil {
+		router.After(ctx, res)
 	}
 }
 
