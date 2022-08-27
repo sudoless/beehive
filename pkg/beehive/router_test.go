@@ -492,11 +492,16 @@ func (n noopResponseWriter) Write(i []byte) (int, error) {
 
 func (n noopResponseWriter) WriteHeader(_ int) {}
 
+type noopResponder struct{}
+
+func (n noopResponder) Respond(_ *Context) {}
+
+func (n noopResponder) StatusCode(_ *Context) int {
+	return 200
+}
+
 func BenchmarkRouter_ServeHTTP(b *testing.B) {
-	responder := &DefaultResponder{
-		Message: "ok",
-		Status:  200,
-	}
+	responder := &noopResponder{}
 
 	router := NewRouter()
 	router.Context = func(r *http.Request) context.Context {

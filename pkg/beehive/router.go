@@ -149,20 +149,15 @@ func (router *Router) serveHTTP(ctx *Context) {
 
 func (router *Router) next(ctx *Context) Responder {
 	for {
-		select {
-		case <-ctx.Context.Done():
-			return router.WhenContextDone(ctx)
-		default:
-			if ctx.handlersIdx >= len(ctx.handlers) {
-				return nil
-			}
-
-			res := ctx.handlers[ctx.handlersIdx](ctx)
-			if res != nil {
-				return res
-			}
-
-			ctx.handlersIdx++
+		if ctx.handlersIdx >= len(ctx.handlers) {
+			return nil
 		}
+
+		res := ctx.handlers[ctx.handlersIdx](ctx)
+		if res != nil {
+			return res
+		}
+
+		ctx.handlersIdx++
 	}
 }
