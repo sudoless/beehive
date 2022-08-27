@@ -81,6 +81,7 @@ func (router *Router) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		handlersIdx:    0,
 		Context:        c,
 		router:         router,
+		afters:         ctx.afters[:0],
 	}
 	router.serveHTTP(ctx)
 	contextPool.Put(ctx)
@@ -95,6 +96,12 @@ func (router *Router) serveHTTP(ctx *Context) {
 			res = router.Recover(ctx, err)
 			if res != nil {
 				res.Respond(ctx)
+			}
+		}
+
+		if len(ctx.afters) != 0 {
+			for _, f := range ctx.afters {
+				f()
 			}
 		}
 

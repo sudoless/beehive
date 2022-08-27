@@ -22,6 +22,8 @@ type Context struct {
 	router      *Router
 	handlers    []HandlerFunc
 	handlersIdx int
+
+	afters []func()
 }
 
 // String returns a formatted string with the contents of the context. This method has no guarantee of compatability
@@ -62,4 +64,9 @@ func (c *Context) Next() Responder {
 func (c *Context) WithValue(key, val any) *Context {
 	c.Context = context.WithValue(c.Context, key, val)
 	return c
+}
+
+// After appends a function to be called after router.serveHTTP is done, but before router.After is called.
+func (c *Context) After(f func()) {
+	c.afters = append(c.afters, f)
 }
