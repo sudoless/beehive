@@ -22,9 +22,6 @@ type Router struct {
 	// WhenNotFound is called when the route does not match or the matched route has 0 handlers.
 	WhenNotFound func(ctx *Context) Responder
 
-	// WhenContextDone is called when the context is "done" (canceled, timed out, or other termination causes).
-	WhenContextDone func(ctx *Context) Responder
-
 	// Recover is called when a panic occurs inside ServeHTTP.
 	Recover func(ctx *Context, panicErr any) Responder
 
@@ -49,9 +46,6 @@ func NewRouter() *Router {
 		},
 		WhenNotFound: func(ctx *Context) Responder {
 			return defaultNotFoundResponder
-		},
-		WhenContextDone: func(ctx *Context) Responder {
-			return defaultContextDoneResponder
 		},
 	}
 

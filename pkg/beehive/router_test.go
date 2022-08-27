@@ -190,19 +190,21 @@ func TestRouter_context(t *testing.T) {
 	})
 	t.Run("closed", func(t *testing.T) {
 		router := NewRouter()
-		router.WhenContextDone = func(_ *Context) Responder {
-			return &DefaultResponder{
-				Message: "ok",
-				Status:  http.StatusTeapot,
-			}
-		}
 		router.Context = func(_ *http.Request) context.Context {
 			ctx, cc := context.WithCancel(context.Background())
 			cc()
 			return ctx
 		}
 		router.Handle("GET", "/foo/bar", func(ctx *Context) Responder {
-			return nil
+			select {
+			case <-ctx.Done():
+				return &DefaultResponder{
+					Message: "ok",
+					Status:  http.StatusTeapot,
+				}
+			default:
+				return nil
+			}
 		})
 
 		w := httptest.NewRecorder()
@@ -544,9 +546,17 @@ func TestRouter_ServeHTTP_contextDone(t *testing.T) {
 
 		return res
 	}
-	middleware2 := func(_ *Context) Responder {
-		trace = append(trace, "middleware2")
-		return nil
+	middleware2 := func(ctx *Context) Responder {
+		select {
+		case <-ctx.Done():
+			return &DefaultResponder{
+				Message: "context terminated",
+				Status:  504,
+			}
+		default:
+			trace = append(trace, "middleware2")
+			return nil
+		}
 	}
 
 	router.Handle("GET", "/foo", middleware1, middleware2, func(ctx *Context) Responder {
