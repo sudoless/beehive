@@ -4,6 +4,7 @@ import (
 	"context"
 	"net/http"
 	"net/http/httptest"
+	"reflect"
 	"testing"
 )
 
@@ -132,5 +133,59 @@ func TestContextContract(t *testing.T) {
 
 	if w.Code != http.StatusAccepted {
 		t.Errorf("bad status code, got %d, meaning values did not propagate with the context properly", w.Code)
+	}
+}
+
+func TestContextAfter(t *testing.T) {
+	t.Parallel()
+
+	var list []string
+
+	middleware1 := func(ctx *Context) Responder {
+		list = append(list, "middleware1")
+		ctx.After(
+			func() {
+				list = append(list, "after1")
+			})
+
+		return nil
+	}
+	middleware2 := func(ctx *Context) Responder {
+		list = append(list, "middleware2")
+
+		ctx.After(
+			func() {
+				list = append(list, "after2")
+			})
+		res := ctx.Next()
+		ctx.After(
+			func() {
+				list = append(list, "after3")
+			})
+
+		return res
+	}
+
+	router := NewRouter()
+	router.Handle("GET", "/test", middleware1, middleware2, func(ctx *Context) Responder {
+		list = append(list, "responder")
+		ctx.After(
+			func() {
+				list = append(list, "after4")
+			})
+
+		return &DefaultResponder{
+			Message: "ok",
+			Status:  200,
+		}
+	})
+
+	w := httptest.NewRecorder()
+	r := httptest.NewRequest("GET", "/test", nil)
+	router.ServeHTTP(w, r)
+
+	want := []string{"middleware1", "middleware2", "responder", "after1", "after2", "after4", "after3"}
+	if !reflect.DeepEqual(want, list) {
+		t.Errorf("wanted %v, got %v", want, list)
 	}
 }
