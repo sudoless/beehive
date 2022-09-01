@@ -691,3 +691,73 @@ func TestRouter_After_panic(t *testing.T) {
 		t.Fatal("expected after to be ran")
 	}
 }
+
+func testFuzzHandler(method, path string) HandlerFunc {
+	return func(ctx *Context) Responder {
+		return &DefaultResponder{
+			Message: method + " " + path,
+			Status:  200,
+		}
+	}
+}
+
+func FuzzRouter(f *testing.F) {
+	method := "GET"
+	paths := map[string]struct{}{
+		"/foo/bar/baz":     {},
+		"/foo/bar/buz":     {},
+		"/foo/bar/bed":     {},
+		"/foo/bar":         {},
+		"/foo/bar/bug":     {},
+		"/foo/biz/fiz":     {},
+		"/hi":              {},
+		"/contact":         {},
+		"/co":              {},
+		"/c":               {},
+		"/a":               {},
+		"/ab":              {},
+		"/doc/":            {},
+		"/doc/go_faq.html": {},
+		"/doc/go1.html":    {},
+		"/α":               {},
+		"/β":               {},
+	}
+
+	router := NewRouter()
+	for path := range paths {
+		f.Add(path)
+
+		router.Handle(method, path, testFuzzHandler(method, path))
+	}
+
+	for path := range paths {
+		f.Add(path + "?foo=bar&baz=biz#anchor")
+	}
+
+	f.Fuzz(func(t *testing.T, path string) {
+		t.Run(path, func(t *testing.T) {
+			w := httptest.NewRecorder()
+			r, err := http.NewRequest(method, path, nil)
+			if err != nil {
+				t.Skipf("bad request with path %q, %v", path, err)
+				return
+			}
+
+			router.ServeHTTP(w, r)
+
+			if _, ok := paths[r.URL.Path]; !ok {
+				if w.Code != 404 {
+					t.Fatalf("found not found path with status code %d", w.Code)
+				}
+			} else {
+				if w.Code != 200 {
+					t.Errorf("unexpected status code %d", w.Code)
+				}
+
+				if w.Body.String() != method+" "+r.URL.Path {
+					t.Errorf("unexpected response body %q", w.Body.String())
+				}
+			}
+		})
+	})
+}
