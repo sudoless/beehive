@@ -34,7 +34,6 @@ type Router struct {
 	AllowRouteOverwrite bool
 
 	methods []methodGroup
-	group
 }
 
 // NewRouter returns an empty router with only the DefaultContext function.
@@ -47,11 +46,6 @@ func NewRouter() *Router {
 		WhenNotFound: func(ctx *Context) Responder {
 			return defaultNotFoundResponder
 		},
-	}
-
-	router.group = group{
-		router:     router,
-		middleware: nil,
 	}
 
 	return router

@@ -428,6 +428,7 @@ func TestRouter_InServer_Shutdown(t *testing.T) {
 			res, err := client.Do(req)
 			if err != nil {
 				t.Errorf("expected no error, got %v", err)
+				return
 			}
 			_ = res.Body.Close()
 
@@ -760,4 +761,40 @@ func FuzzRouter(f *testing.F) {
 			}
 		})
 	})
+}
+
+func TestNewRouter_direct(t *testing.T) {
+	router := &Router{}
+	router.WhenNotFound = func(ctx *Context) Responder {
+		return &DefaultResponder{
+			Message: "not found",
+			Status:  404,
+		}
+	}
+	router.Recover = func(ctx *Context, panicErr any) Responder {
+		t.Fatalf("unexpected panic: %v", panicErr)
+		return nil
+	}
+	router.Context = func(r *http.Request) context.Context {
+		return context.WithValue(context.Background(), "foo", "bar")
+	}
+
+	router.Handle("GET", "/foo", func(ctx *Context) Responder {
+		return &DefaultResponder{
+			Message: "foo",
+			Status:  200,
+		}
+	})
+
+	w := httptest.NewRecorder()
+	r := httptest.NewRequest(http.MethodGet, "/foo", nil)
+	router.ServeHTTP(w, r)
+
+	if w.Code != 200 {
+		t.Fatalf("unexpected status code %d", w.Code)
+	}
+
+	if w.Body.String() != "foo" {
+		t.Fatalf("unexpected response body %q", w.Body.String())
+	}
 }
