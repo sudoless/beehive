@@ -43,3 +43,51 @@ features will be introduced on a need only basis.
 Any addition that can be implemented outside the package should be.
 
 Any addition that uses dependencies must be implemented in a separate package.
+
+
+## Benchmarks
+
+```
+name                   time/op
+
+pkg:go.sdls.io/beehive/internal/trie goos:darwin goarch:arm64
+Radix_Add-10           1.70µs ± 1%
+Radix_Get-10            200ns ± 2%
+Radix_wildcard_Get-10  13.7ns ± 1%
+
+pkg:go.sdls.io/beehive/pkg/beehive goos:darwin goarch:arm64
+Router_ServeHTTP-10    33.6ns ± 1%
+
+pkg:go.sdls.io/beehive/pkg/beehive-query goos:darwin goarch:arm64
+_ValuesParser-10        156ns ± 3%
+```
+
+```
+name                   alloc/op
+
+pkg:go.sdls.io/beehive/internal/trie goos:darwin goarch:arm64
+Radix_Add-10           3.50kB ± 0%
+Radix_Get-10            0.00B     
+Radix_wildcard_Get-10   0.00B
+     
+pkg:go.sdls.io/beehive/pkg/beehive goos:darwin goarch:arm64
+Router_ServeHTTP-10     0.00B
+     
+pkg:go.sdls.io/beehive/pkg/beehive-query goos:darwin goarch:arm64
+_ValuesParser-10        48.0B ± 0%
+```
+
+```
+name                   allocs/op
+
+pkg:go.sdls.io/beehive/internal/trie goos:darwin goarch:arm64
+Radix_Add-10             68.0 ± 0%
+Radix_Get-10             0.00     
+Radix_wildcard_Get-10    0.00
+     
+pkg:go.sdls.io/beehive/pkg/beehive goos:darwin goarch:arm64
+Router_ServeHTTP-10      0.00
+     
+pkg:go.sdls.io/beehive/pkg/beehive-query goos:darwin goarch:arm64
+_ValuesParser-10         1.00 ± 0%
+```
