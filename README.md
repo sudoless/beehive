@@ -7,6 +7,8 @@ Less is more. As such the router has 0 dependencies and all middleware
 in the main `beehive` package only use core features and interfaces where
 other packages can be used up to the users' discretion.
 
+[![Go Report Card](https://goreportcard.com/badge/go.sdls.io/beehive)](https://goreportcard.com/report/go.sdls.io/beehive)
+
 ## Features
 
 - 🍯 Sweet and _simple_
