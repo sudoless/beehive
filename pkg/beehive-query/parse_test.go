@@ -5,6 +5,7 @@ import (
 	"context"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"reflect"
 	"testing"
 
@@ -102,28 +103,54 @@ func Test_ValuesParser(t *testing.T) {
 }
 
 func Benchmark_ValuesParser(b *testing.B) {
-	parser := Parser([]string{"foo", "bar", "baz"})
-	req := httptest.NewRequest("GET", "/foo/bar?foo=123&bar=456&baz=789&foo=000", nil)
-	ctx := &beehive.Context{
-		ResponseWriter: nil,
-		Request:        req,
-		Context:        context.Background(),
-	}
+	b.Run("beehive", func(b *testing.B) {
+		m := make(map[string]int)
+		for idx, f := range []string{"foo", "bar", "baz"} {
+			m[f] = idx + 1
+		}
 
-	b.ReportAllocs()
-	b.ResetTimer()
+		query := &Values{
+			dict:   m,
+			values: make([]string, 4),
+		}
 
-	for iter := 0; iter < b.N; iter++ {
-		parser(ctx)
-	}
+		b.ReportAllocs()
+		b.ResetTimer()
 
-	values := ContextValues(ctx)
-	if values == nil {
-		b.Fatal("expected request.Values to be not nil")
-	}
+		for iter := 0; iter < b.N; iter++ {
+			query.parse("foo=123&bar=456&baz=789&foo=000")
+		}
 
-	expected := []string{"", "000", "456", "789"}
-	if !reflect.DeepEqual(expected, values.values) {
-		b.Errorf("expected %v, got %v", expected, values.values)
-	}
+		b.StopTimer()
+
+		expected := []string{"", "000", "456", "789"}
+		if !reflect.DeepEqual(expected, query.values) {
+			b.Errorf("expected %v, got %v", expected, query.values)
+		}
+	})
+
+	b.Run("net/url", func(b *testing.B) {
+		var values url.Values
+
+		b.ReportAllocs()
+		b.ResetTimer()
+
+		for iter := 0; iter < b.N; iter++ {
+			values, _ = url.ParseQuery("foo=123&bar=456&baz=789")
+		}
+
+		b.StopTimer()
+
+		expected := map[string]string{
+			"foo": "123",
+			"bar": "456",
+			"baz": "789",
+		}
+
+		for key, value := range expected {
+			if values.Get(key) != value {
+				b.Errorf("expected %s, got %s", value, values.Get(key))
+			}
+		}
+	})
 }

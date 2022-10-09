@@ -29,14 +29,17 @@ func Parser(fields []string) beehive.HandlerFunc {
 		r := ctx.Request
 
 		query := pool.Get().(*Values)
-		query.reset()
 
 		query.parse(r.URL.RawQuery)
 
-		res := ctx.WithValue(contextValuesKey, query).Next()
-		pool.Put(query)
+		ctx.WithValue(contextValuesKey{}, query)
 
-		return res
+		ctx.After(func() {
+			query.reset()
+			pool.Put(query)
+		})
+
+		return nil
 	}
 }
 

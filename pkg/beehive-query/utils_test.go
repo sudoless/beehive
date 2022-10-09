@@ -13,7 +13,7 @@ func TestContextValues(t *testing.T) {
 		t.Fatalf("expected nil, got %v", v)
 	}
 
-	ctx = context.WithValue(ctx, contextValuesKey, &Values{
+	ctx = context.WithValue(ctx, contextValuesKey{}, &Values{
 		dict:   nil,
 		values: nil,
 	})
