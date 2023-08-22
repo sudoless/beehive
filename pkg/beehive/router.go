@@ -66,12 +66,15 @@ func (router *Router) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	*ctx = Context{
 		ResponseWriter: w,
 		Request:        r,
-		handlersIdx:    0,
 		Context:        c,
 		router:         router,
-		afters:         ctx.afters[:0],
 	}
+
 	router.serveHTTP(ctx)
+
+	ctx.afters = ctx.afters[:0]
+	*ctx = Context{}
+
 	contextPool.Put(ctx)
 }
 
