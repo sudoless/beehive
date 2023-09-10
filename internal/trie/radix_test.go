@@ -5,7 +5,7 @@ import (
 )
 
 func testRadixAdd(t *testing.T, paths []string) {
-	radix := &Radix{}
+	radix := &Radix[int]{}
 
 	avg := testing.AllocsPerRun(1, func() {
 		for idx, path := range paths {
@@ -76,7 +76,7 @@ func BenchmarkRadix_Add(b *testing.B) {
 	b.ResetTimer()
 
 	for iter := 0; iter < b.N; iter++ {
-		radix := &Radix{}
+		radix := &Radix[int]{}
 		for idx, path := range paths {
 			radix.Add(path, idx)
 		}
@@ -88,33 +88,38 @@ func TestRadix_Get(t *testing.T) {
 
 	paths := []string{"test", "team", "toast", "slow", "water", "slower", "tester"}
 
-	radix := &Radix{}
+	radix := &Radix[int]{}
 	for idx, path := range paths {
 		radix.Add(path, idx)
 	}
 
 	search := map[string]any{
-		"test":              0,
-		"team":              1,
-		"toast":             2,
-		"slow":              3,
-		"water":             4,
-		"slower":            5,
-		"tester":            6,
-		"slowest":           nil,
-		"slo":               nil,
-		"t":                 nil,
-		"te":                nil,
-		"tes":               nil,
-		"":                  nil,
-		" ":                 nil,
-		"largeststringhere": nil,
-		"tes_er":            nil,
+		"test":   0,
+		"team":   1,
+		"toast":  2,
+		"slow":   3,
+		"water":  4,
+		"slower": 5,
+		"tester": 6,
+
+		"slowest":           -1,
+		"slo":               -1,
+		"t":                 -1,
+		"te":                -1,
+		"tes":               -1,
+		"":                  -1,
+		" ":                 -1,
+		"largeststringhere": -1,
+		"tes_er":            -1,
 	}
 
 	for path, mustFind := range search {
-		value, _ := radix.Get(path)
-		if value != mustFind {
+		value, found := radix.Get(path)
+		if mustFind == -1 {
+			if found {
+				t.Errorf("expected not to find %s", path)
+			}
+		} else if value != mustFind {
 			t.Errorf("expected %s to be %v, got %v", path, mustFind, value)
 		}
 	}
@@ -125,49 +130,54 @@ func TestRadix_Get_samePrefix(t *testing.T) {
 
 	paths := []string{"/test", "/team", "/toast", "/slow", "/water", "/slower", "/tester"}
 
-	radix := &Radix{}
+	radix := &Radix[int]{}
 	for idx, path := range paths {
 		radix.Add(path, idx)
 	}
 
 	search := map[string]any{
-		"/test":              0,
-		"/team":              1,
-		"/toast":             2,
-		"/slow":              3,
-		"/water":             4,
-		"/slower":            5,
-		"/tester":            6,
-		"test":               nil,
-		"team":               nil,
-		"toast":              nil,
-		"slow":               nil,
-		"water":              nil,
-		"slower":             nil,
-		"tester":             nil,
-		"/slowest":           nil,
-		"/slo":               nil,
-		"/t":                 nil,
-		"/te":                nil,
-		"/tes":               nil,
-		"/":                  nil,
-		"/ ":                 nil,
-		"/largeststringhere": nil,
-		"/tes_er":            nil,
-		"slowest":            nil,
-		"slo":                nil,
-		"t":                  nil,
-		"te":                 nil,
-		"tes":                nil,
-		"":                   nil,
-		" ":                  nil,
-		"largeststringhere":  nil,
-		"tes_er":             nil,
+		"/test":   0,
+		"/team":   1,
+		"/toast":  2,
+		"/slow":   3,
+		"/water":  4,
+		"/slower": 5,
+		"/tester": 6,
+
+		"test":               -1,
+		"team":               -1,
+		"toast":              -1,
+		"slow":               -1,
+		"water":              -1,
+		"slower":             -1,
+		"tester":             -1,
+		"/slowest":           -1,
+		"/slo":               -1,
+		"/t":                 -1,
+		"/te":                -1,
+		"/tes":               -1,
+		"/":                  -1,
+		"/ ":                 -1,
+		"/largeststringhere": -1,
+		"/tes_er":            -1,
+		"slowest":            -1,
+		"slo":                -1,
+		"t":                  -1,
+		"te":                 -1,
+		"tes":                -1,
+		"":                   -1,
+		" ":                  -1,
+		"largeststringhere":  -1,
+		"tes_er":             -1,
 	}
 
 	for path, mustFind := range search {
-		value, _ := radix.Get(path)
-		if value != mustFind {
+		value, found := radix.Get(path)
+		if mustFind == -1 {
+			if found {
+				t.Errorf("expected not to find %s", path)
+			}
+		} else if value != mustFind {
 			t.Errorf("expected %s to be %v, got %v", path, mustFind, value)
 		}
 	}
@@ -176,7 +186,7 @@ func TestRadix_Get_samePrefix(t *testing.T) {
 func TestRadix_Get_empty(t *testing.T) {
 	t.Parallel()
 
-	radix := &Radix{}
+	radix := &Radix[int]{}
 	_, found := radix.Get("")
 	if found {
 		t.Errorf("expected not to find empty")
@@ -211,7 +221,7 @@ func TestRadix_Get_0alloc(t *testing.T) {
 		"/β",
 	}
 
-	radix := &Radix{}
+	radix := &Radix[int]{}
 	for idx, path := range paths {
 		radix.Add(path, idx)
 	}
@@ -243,7 +253,7 @@ func TestRadix_Get_newRadix(t *testing.T) {
 		}
 	}()
 
-	radix := &Radix{}
+	radix := &Radix[int]{}
 	radix.Get("/foo/bar")
 }
 
@@ -252,19 +262,19 @@ func TestRadix_Get_special(t *testing.T) {
 
 	paths := []string{"GET/api/health"}
 
-	radix := &Radix{}
+	radix := &Radix[int]{}
 	for idx, path := range paths {
 		radix.Add(path, idx)
 	}
 
 	search := map[string]any{
-		"POST/api/hive": nil,
+		"POST/api/hive": -1,
 	}
 
-	for path, mustFind := range search {
-		value, _ := radix.Get(path)
-		if value != mustFind {
-			t.Errorf("expected %s to be %v, got %v", path, mustFind, value)
+	for path := range search {
+		_, found := radix.Get(path)
+		if found {
+			t.Errorf("expected not to find %s", path)
 		}
 	}
 }
@@ -290,7 +300,7 @@ func BenchmarkRadix_Get(b *testing.B) {
 		"/β",
 	}
 
-	radix := &Radix{}
+	radix := &Radix[int]{}
 	for idx, path := range paths {
 		radix.Add(path, idx)
 	}
@@ -330,7 +340,7 @@ func TestRadix_wildcard(t *testing.T) {
 		"/11/23456",
 	}
 
-	radix := &Radix{}
+	radix := &Radix[int]{}
 	for idx, path := range paths {
 		radix.Add(path, idx)
 	}
@@ -370,7 +380,7 @@ func TestRadix_wildcard_special(t *testing.T) {
 	t.Parallel()
 
 	t.Run("/*", func(t *testing.T) {
-		radix := &Radix{}
+		radix := &Radix[int]{}
 
 		paths := []string{
 			"/*",
@@ -404,7 +414,7 @@ func TestRadix_wildcard_special(t *testing.T) {
 		}
 	})
 	t.Run("*", func(t *testing.T) {
-		radix := &Radix{}
+		radix := &Radix[int]{}
 		paths := []string{
 			"*",
 		}
@@ -430,7 +440,7 @@ func TestRadix_wildcard_special(t *testing.T) {
 		}
 	})
 	t.Run("/test* /test search", func(t *testing.T) {
-		radix := &Radix{}
+		radix := &Radix[int]{}
 
 		paths := []string{
 			"/foo*",
@@ -453,7 +463,7 @@ func TestRadix_wildcard_special(t *testing.T) {
 		}
 	})
 	t.Run("greedy", func(t *testing.T) {
-		radix := &Radix{}
+		radix := &Radix[int]{}
 
 		paths := []string{
 			"/x/api_test/a/*",
@@ -471,12 +481,19 @@ func TestRadix_wildcard_special(t *testing.T) {
 			"/y/api_test/b/1": 1,
 			"/y/api_test/b/2": 1,
 			"/y/api_test/b/3": 1,
-			"/x/api_____/a/1": nil,
-			"/x/api_____/b/1": nil,
+
+			"/x/api_____/a/1": -1,
+			"/x/api_____/b/1": -1,
 		}
 
 		for path, want := range search {
-			got, _ := radix.Get(path)
+			got, found := radix.Get(path)
+			if want == -1 {
+				if found {
+					t.Errorf("expected not to find %s", path)
+				}
+				continue
+			}
 			if got != want {
 				t.Errorf("expected %s to be %v, got %v", path, want, got)
 			}
@@ -495,7 +512,7 @@ func TestRadix_wildcard_special(t *testing.T) {
 			"/wild/card/*",
 		}
 
-		radix := &Radix{}
+		radix := &Radix[int]{}
 		for idx, path := range paths {
 			radix.Add(path, idx)
 		}
@@ -515,7 +532,7 @@ func TestRadix_wildcard_special(t *testing.T) {
 }
 
 func BenchmarkRadix_wildcard_Get(b *testing.B) {
-	radix := &Radix{}
+	radix := &Radix[int]{}
 	paths := []string{
 		"/wildcard*",
 		"/wildcard/12345",

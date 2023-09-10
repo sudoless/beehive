@@ -6,17 +6,18 @@ import (
 	"go.sdls.io/beehive/internal/unsafe"
 )
 
-type radixNode struct {
-	data       any
-	path       []byte
-	pathFull   []byte
-	children   []*radixNode
-	lookup     []byte
-	isWildcard bool
-	wildcard   *radixNode
+type radixNode[T any] struct {
+	data        T
+	dataIsValid bool
+	path        []byte
+	pathFull    []byte
+	children    []*radixNode[T]
+	lookup      []byte
+	isWildcard  bool
+	wildcard    *radixNode[T]
 }
 
-func (node *radixNode) propagateWildcard(wildcard *radixNode) {
+func (node *radixNode[T]) propagateWildcard(wildcard *radixNode[T]) {
 	if wildcard != nil {
 		node.wildcard = wildcard
 	}
@@ -30,7 +31,7 @@ func (node *radixNode) propagateWildcard(wildcard *radixNode) {
 	}
 }
 
-func (node *radixNode) add(path []byte, data any) {
+func (node *radixNode[T]) add(path []byte, data T) {
 	current := node
 	isWildcard := path[len(path)-1] == '*'
 	if isWildcard {
@@ -42,6 +43,7 @@ func (node *radixNode) add(path []byte, data any) {
 	for ; commonIdx == len(current.path); commonIdx = commonPrefix(path, current.path) {
 		if commonIdx == len(path) {
 			current.data = data
+			current.dataIsValid = true
 			current.pathFull = pathFull
 			if isWildcard && !current.isWildcard {
 				current.isWildcard = isWildcard
@@ -54,11 +56,12 @@ func (node *radixNode) add(path []byte, data any) {
 		lookupIdx := bytes.IndexByte(current.lookup, path[0])
 		if lookupIdx == -1 {
 			current.lookup = append(current.lookup, path[0])
-			child := &radixNode{
-				path:       path,
-				pathFull:   pathFull,
-				data:       data,
-				isWildcard: isWildcard,
+			child := &radixNode[T]{
+				path:        path,
+				pathFull:    pathFull,
+				data:        data,
+				dataIsValid: true,
+				isWildcard:  isWildcard,
 			}
 			current.children = append(current.children, child)
 
@@ -77,7 +80,7 @@ func (node *radixNode) add(path []byte, data any) {
 		current = current.children[lookupIdx]
 	}
 
-	self := &radixNode{}
+	self := &radixNode[T]{}
 	*self = *current
 	self.path = current.path[commonIdx:]
 
@@ -86,26 +89,28 @@ func (node *radixNode) add(path []byte, data any) {
 	if len(current.path) == 0 {
 		current.path = nil
 	}
-	current.data = nil
+	current.dataIsValid = false
 	current.isWildcard = false
 
 	if commonIdx == len(path) {
-		current.children = []*radixNode{self}
+		current.children = []*radixNode[T]{self}
 		current.lookup = []byte{self.path[0]}
 		current.data = data
+		current.dataIsValid = true
 		current.pathFull = pathFull
 		current.isWildcard = isWildcard
 	} else {
-		child := &radixNode{
-			data:       data,
-			path:       path[commonIdx:],
-			pathFull:   pathFull,
-			isWildcard: isWildcard,
-			wildcard:   current.wildcard,
+		child := &radixNode[T]{
+			data:        data,
+			dataIsValid: true,
+			path:        path[commonIdx:],
+			pathFull:    pathFull,
+			isWildcard:  isWildcard,
+			wildcard:    current.wildcard,
 		}
 
 		current.lookup = []byte{self.path[0], path[commonIdx]}
-		current.children = []*radixNode{self, child}
+		current.children = []*radixNode[T]{self, child}
 	}
 
 	if self.isWildcard {
@@ -113,9 +118,11 @@ func (node *radixNode) add(path []byte, data any) {
 	}
 }
 
-func (node *radixNode) get(path []byte) (any, bool) {
+func (node *radixNode[T]) get(path []byte) (T, bool) {
+	var zero T
+
 	if len(path) == 0 || node == nil {
-		return nil, false
+		return zero, false
 	}
 
 	current := node
@@ -125,7 +132,7 @@ func (node *radixNode) get(path []byte) (any, bool) {
 	for {
 		if ptr >= pathLen {
 			if bytes.Equal(path, current.pathFull) {
-				return current.data, true
+				return current.data, current.dataIsValid
 			}
 
 			break
@@ -163,14 +170,14 @@ func (node *radixNode) get(path []byte) (any, bool) {
 			continue
 		}
 
-		return wildcard.data, true
+		return wildcard.data, wildcard.dataIsValid
 	}
 
-	return nil, false
+	return zero, false
 }
 
-func (node *radixNode) leafs() map[string]any {
-	m := make(map[string]any)
+func (node *radixNode[T]) leafs() map[string]T {
+	m := make(map[string]T)
 
 	if len(node.children) != 0 {
 		for _, child := range node.children {
@@ -181,18 +188,18 @@ func (node *radixNode) leafs() map[string]any {
 		}
 	}
 
-	if node.data != nil {
+	if node.dataIsValid {
 		m[string(node.pathFull)] = node.data
 	}
 
 	return m
 }
 
-type Radix struct {
-	root *radixNode
+type Radix[T any] struct {
+	root *radixNode[T]
 }
 
-func (radix *Radix) Add(path string, data any) {
+func (radix *Radix[T]) Add(path string, data T) {
 	if len(path) == 0 {
 		return
 	}
@@ -203,11 +210,12 @@ func (radix *Radix) Add(path string, data any) {
 			path = path[:len(path)-1]
 		}
 
-		radix.root = &radixNode{
-			path:       []byte(path),
-			pathFull:   []byte(path),
-			data:       data,
-			isWildcard: isWildcard,
+		radix.root = &radixNode[T]{
+			path:        []byte(path),
+			pathFull:    []byte(path),
+			data:        data,
+			dataIsValid: true,
+			isWildcard:  isWildcard,
 		}
 
 		return
@@ -216,6 +224,6 @@ func (radix *Radix) Add(path string, data any) {
 	radix.root.add([]byte(path)[:], data)
 }
 
-func (radix Radix) Get(path string) (any, bool) {
+func (radix Radix[T]) Get(path string) (data T, found bool) {
 	return radix.root.get(unsafe.StringToBytes(path))
 }
