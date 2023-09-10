@@ -9,7 +9,7 @@ import (
 
 type methodGroup struct {
 	Name  string
-	radix trie.Radix
+	radix trie.Radix[[]HandlerFunc]
 }
 
 // Router is the core of the beehive package. It implements the Grouper interface for creating route groups or
@@ -101,7 +101,7 @@ func (router *Router) serveHTTP(ctx *Context) {
 		}
 	}()
 
-	var radix *trie.Radix
+	var radix *trie.Radix[[]HandlerFunc]
 	for idx, method := range router.methods {
 		if method.Name == r.Method {
 			radix = &router.methods[idx].radix
@@ -124,7 +124,7 @@ func (router *Router) serveHTTP(ctx *Context) {
 		return
 	}
 
-	ctx.handlers = data.([]HandlerFunc)
+	ctx.handlers = data
 	if len(ctx.handlers) == 0 {
 		if res = router.WhenNotFound(ctx); res != nil {
 			res.Respond(ctx)

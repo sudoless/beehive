@@ -60,7 +60,7 @@ func (router *Router) Handle(method, path string, handlers ...HandlerFunc) Group
 		panic("beehive: router handler is empty")
 	}
 
-	var radix *trie.Radix
+	var radix *trie.Radix[[]HandlerFunc]
 	for idx, m := range router.methods {
 		if m.Name == method {
 			radix = &router.methods[idx].radix
@@ -71,7 +71,7 @@ func (router *Router) Handle(method, path string, handlers ...HandlerFunc) Group
 	if radix == nil {
 		router.methods = append(router.methods, methodGroup{
 			Name:  method,
-			radix: trie.Radix{},
+			radix: trie.Radix[[]HandlerFunc]{},
 		})
 		radix = &router.methods[len(router.methods)-1].radix
 	}
