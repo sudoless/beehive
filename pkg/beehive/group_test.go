@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"slices"
 	"testing"
 )
 
@@ -289,4 +290,83 @@ func TestGroup_groupAfterWildcard(t *testing.T) {
 			}
 		})
 	}()
+}
+
+func TestGroup_With(t *testing.T) {
+	t.Parallel()
+
+	router := NewRouter()
+	api := router.Group("/api")
+
+	path := make([]string, 0, 64)
+
+	api.With(
+		func(ctx *Context) Responder {
+			path = append(path, "A")
+			return nil
+		},
+		func(ctx *Context) Responder {
+			path = append(path, "B")
+			return nil
+		},
+	)
+
+	foo := api.Group("/foo", func(ctx *Context) Responder {
+		path = append(path, "FOO")
+		return nil
+	})
+	bar := api.Group("/bar", func(ctx *Context) Responder {
+		path = append(path, "BAR")
+		return nil
+	})
+
+	foo.Handle("GET", "/1", func(ctx *Context) Responder {
+		path = append(path, "1")
+		return &DefaultResponder{
+			Status: http.StatusOK,
+		}
+	})
+
+	foo.Handle("GET", "/2", func(ctx *Context) Responder {
+		path = append(path, "2")
+		return &DefaultResponder{
+			Status: http.StatusOK,
+		}
+	})
+
+	bar.Handle("GET", "/1", func(ctx *Context) Responder {
+		path = append(path, "1")
+		return &DefaultResponder{
+			Status: http.StatusOK,
+		}
+	})
+
+	bar.Handle("GET", "/2", func(ctx *Context) Responder {
+		path = append(path, "2")
+		return &DefaultResponder{
+			Status: http.StatusOK,
+		}
+	})
+
+	w := httptest.NewRecorder()
+	r := httptest.NewRequest("GET", "/api/foo/1", nil)
+	router.ServeHTTP(w, r)
+
+	w = httptest.NewRecorder()
+	r = httptest.NewRequest("GET", "/api/bar/2", nil)
+	router.ServeHTTP(w, r)
+
+	w = httptest.NewRecorder()
+	r = httptest.NewRequest("GET", "/api/foo/2", nil)
+	router.ServeHTTP(w, r)
+
+	expected := []string{
+		"A", "B", "FOO", "1",
+		"A", "B", "BAR", "2",
+		"A", "B", "FOO", "2",
+	}
+
+	if !slices.Equal(expected, path) {
+		t.Errorf("expected\n%v\ngot\n%v\n", expected, path)
+	}
 }
