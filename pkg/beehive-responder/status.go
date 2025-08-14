@@ -9,13 +9,16 @@ type Status struct {
 	Code int
 }
 
-func (s *Status) Respond(ctx *beehive.Context) {
+func (s Status) Respond(ctx *beehive.Context) {
 	ctx.ResponseWriter.WriteHeader(s.Code)
 }
 
 // test that Status implements beehive.Responder
-var _ beehive.Responder = &Status{}
+var (
+	_ beehive.Responder = Status{}
+	_ beehive.Responder = &Status{}
+)
 
-func (s *Status) StatusCode(_ *beehive.Context) int {
+func (s Status) StatusCode(_ *beehive.Context) int {
 	return s.Code
 }
