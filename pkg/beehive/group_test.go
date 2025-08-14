@@ -232,3 +232,61 @@ func TestGroup_Handle_emptyPath_noPrefix(t *testing.T) {
 
 	t.Fatalf("expected panic")
 }
+
+func TestGroup_groupAfterWildcard(t *testing.T) {
+	t.Parallel()
+
+	router := NewRouter()
+	g := router.Group("/api")
+	gwc := g.Group("/wildcard/*")
+
+	gwc.Handle("GET", "", func(_ *Context) Responder {
+		return &DefaultResponder{
+			Message: "wildcard",
+			Status:  200,
+		}
+	})
+
+	_, found := router.methods[0].radix.Get("/api/wildcard/foobar")
+	if !found {
+		t.Fatalf("expected to find /api/wildcard/foobar")
+	}
+
+	// caught by the router.Handle overwrite check
+	func() {
+		defer func() {
+			if r := recover(); r == nil {
+				t.Error("expected panic")
+			}
+		}()
+
+		gwc.Handle("GET", "/sub-path", func(_ *Context) Responder {
+			return &DefaultResponder{
+				Message: "sub-path",
+				Status:  200,
+			}
+		})
+	}()
+
+	gwcsp := gwc.Group("/yet-another-sub-path", func(ctx *Context) Responder {
+		return &DefaultResponder{
+			Message: "yet-another-sub-path",
+			Status:  200,
+		}
+	})
+
+	func() {
+		defer func() {
+			if r := recover(); r == nil {
+				t.Error("expected panic")
+			}
+		}()
+
+		gwcsp.Handle("GET", "", func(_ *Context) Responder {
+			return &DefaultResponder{
+				Message: "sub-path",
+				Status:  200,
+			}
+		})
+	}()
+}
