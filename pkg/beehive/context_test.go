@@ -46,7 +46,7 @@ func TestContext_String(t *testing.T) {
 	}
 
 	str := ctx.String()
-	if str != "beehive.Context(idx=0, handlers=[], ctx=(context.Background.WithValue(type *struct {}, val bar)))" {
+	if str != "beehive.Context(idx=0, handlers=[], ctx=(context.Background.WithValue(*struct {}, bar)))" {
 		t.Errorf("bad context str, got '%s'", str)
 	}
 }

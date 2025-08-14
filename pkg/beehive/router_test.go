@@ -3,7 +3,9 @@ package beehive
 import (
 	"bytes"
 	"context"
+	"errors"
 	"log"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"reflect"
@@ -385,6 +387,8 @@ func Test_ResponseWriter(t *testing.T) {
 }
 
 func TestRouter_InServer_Shutdown(t *testing.T) {
+	port := "11406"
+
 	if testing.Short() {
 		t.Skip("skipping test in short mode")
 	}
@@ -403,24 +407,28 @@ func TestRouter_InServer_Shutdown(t *testing.T) {
 	})
 
 	server := http.Server{
-		Addr:    ":11406",
+		Addr:    ":" + port,
 		Handler: router,
 	}
 
+	l, err := net.Listen("tcp4", "127.0.0.1:"+port)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Log(l.Addr())
+
 	go func() {
-		if err := server.ListenAndServe(); err != nil {
-			if err != http.ErrServerClosed {
-				t.Errorf("expected %v, got %v", http.ErrServerClosed, err)
+		if serr := server.Serve(l); serr != nil {
+			if !errors.Is(serr, http.ErrServerClosed) {
+				t.Errorf("expected %v, got %v", http.ErrServerClosed, serr)
 			}
 		}
 	}()
 
-	time.Sleep(time.Millisecond * 10)
-
 	client := &http.Client{}
 	for iter := 0; iter < 100; iter++ {
 		go func() {
-			req, err := http.NewRequest(http.MethodGet, "http://:11406/sleep", nil)
+			req, err := http.NewRequest(http.MethodGet, "http://127.0.0.1:"+port+"/sleep", nil)
 			if err != nil {
 				t.Errorf("expected no error, got %v", err)
 			}
