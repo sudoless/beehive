@@ -32,6 +32,8 @@ func TestRouter_Group(t *testing.T) {
 	}
 
 	t.Run("prefix", func(t *testing.T) {
+		t.Parallel()
+
 		router := NewRouter()
 		router.Group("/api").
 			Handle("GET", "/health", h("/api/health")).
@@ -56,6 +58,8 @@ func TestRouter_Group(t *testing.T) {
 		}
 	})
 	t.Run("middleware", func(t *testing.T) {
+		t.Parallel()
+
 		router := NewRouter()
 		api := router.Group("/api")
 		{
@@ -118,6 +122,8 @@ func TestRouter_Group(t *testing.T) {
 
 		for _, test := range tests {
 			t.Run(fmt.Sprintf("%s(%t)", test.path, test.withAuth), func(t *testing.T) {
+				t.Parallel()
+
 				w := httptest.NewRecorder()
 				r := httptest.NewRequest("GET", test.path, nil)
 				if test.withAuth {
@@ -132,6 +138,8 @@ func TestRouter_Group(t *testing.T) {
 		}
 	})
 	t.Run("empty", func(t *testing.T) {
+		t.Parallel()
+
 		counter := 0
 		middleware := func(_ *Context) Responder {
 			counter++

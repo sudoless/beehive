@@ -17,7 +17,7 @@ var contextPool = &sync.Pool{
 type Context struct {
 	ResponseWriter http.ResponseWriter
 	Request        *http.Request
-	Context        context.Context
+	Context        context.Context //nolint:containedctx
 
 	router      *Router
 	handlers    []HandlerFunc
@@ -26,7 +26,7 @@ type Context struct {
 	afters []func()
 }
 
-// String returns a formatted string with the contents of the context. This method has no guarantee of compatability
+// String returns a formatted string with the contents of the context. This method has no guarantee of compatibility
 // between different versions of this package.
 func (c *Context) String() string {
 	return fmt.Sprintf("beehive.Context(idx=%d, handlers=%v, ctx=(%v))",

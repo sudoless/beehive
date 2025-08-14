@@ -10,6 +10,8 @@ func TestWrapHttpHandlerFunc(t *testing.T) {
 	t.Parallel()
 
 	t.Run("simple handler", func(t *testing.T) {
+		t.Parallel()
+
 		h := func(w http.ResponseWriter, r *http.Request) {
 			w.WriteHeader(http.StatusTeapot)
 			_, _ = w.Write([]byte("Hello, World!"))
@@ -31,6 +33,8 @@ func TestWrapHttpHandlerFunc(t *testing.T) {
 		}
 	})
 	t.Run("no response written", func(t *testing.T) {
+		t.Parallel()
+
 		h := func(w http.ResponseWriter, r *http.Request) {
 			// noop
 		}
@@ -68,6 +72,8 @@ func TestWrapHttpHandler(t *testing.T) {
 	t.Parallel()
 
 	t.Run("simple handler", func(t *testing.T) {
+		t.Parallel()
+
 		h := testHandler{}
 
 		router := NewRouter()
@@ -86,6 +92,8 @@ func TestWrapHttpHandler(t *testing.T) {
 		}
 	})
 	t.Run("no response written", func(t *testing.T) {
+		t.Parallel()
+
 		h := testHandler{}
 
 		router := NewRouter()

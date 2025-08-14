@@ -13,7 +13,7 @@ func (s Status) Respond(ctx *beehive.Context) {
 	ctx.ResponseWriter.WriteHeader(s.Code)
 }
 
-// test that Status implements beehive.Responder
+// test that Status implements beehive.Responder.
 var (
 	_ beehive.Responder = Status{}
 	_ beehive.Responder = &Status{}

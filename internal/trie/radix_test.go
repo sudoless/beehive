@@ -36,16 +36,22 @@ func TestRadix_Add(t *testing.T) {
 	t.Parallel()
 
 	t.Run("simple", func(t *testing.T) {
+		t.Parallel()
+
 		paths := []string{"test", "team", "toast", "slow", "water", "slower", "tester"}
 		testRadixAdd(t, paths)
 	})
 
 	t.Run("romane", func(t *testing.T) {
+		t.Parallel()
+
 		paths := []string{"romane", "romanus", "romulus", "rubens", "ruber", "rubicon", "rubicundus"}
 		testRadixAdd(t, paths)
 	})
 
 	t.Run("duplicate", func(t *testing.T) {
+		t.Parallel()
+
 		paths := []string{"test", "test", "team", "slow", "water", "slower", "slow", "toast", "tester", "water"}
 		testRadixAdd(t, paths)
 	})
@@ -75,7 +81,7 @@ func BenchmarkRadix_Add(b *testing.B) {
 	b.ReportAllocs()
 	b.ResetTimer()
 
-	for iter := 0; iter < b.N; iter++ {
+	for b.Loop() {
 		radix := &Radix[int]{}
 		for idx, path := range paths {
 			radix.Add(path, idx)
@@ -200,7 +206,7 @@ func TestRadix_Get_empty(t *testing.T) {
 	}
 }
 
-func TestRadix_Get_0alloc(t *testing.T) {
+func TestRadix_Get_0alloc(t *testing.T) { //nolint:paralleltest
 	paths := [...]string{
 		"/foo/bar/baz",
 		"/foo/bar/buz",
@@ -247,6 +253,8 @@ func TestRadix_Get_0alloc(t *testing.T) {
 }
 
 func TestRadix_Get_newRadix(t *testing.T) {
+	t.Parallel()
+
 	defer func() {
 		if r := recover(); r != nil {
 			t.Errorf("expected not to panic")
@@ -308,7 +316,7 @@ func BenchmarkRadix_Get(b *testing.B) {
 	b.ReportAllocs()
 	b.ResetTimer()
 
-	for iter := 0; iter < b.N; iter++ {
+	for b.Loop() {
 		for _, path := range paths {
 			_, _ = radix.Get(path)
 		}
@@ -368,6 +376,8 @@ func TestRadix_wildcard(t *testing.T) {
 
 	for _, path := range search {
 		t.Run(path, func(t *testing.T) {
+			t.Parallel()
+
 			_, found := radix.Get(path)
 			if !found {
 				t.Errorf("expected to find %s", path)
@@ -380,6 +390,8 @@ func TestRadix_wildcard_special(t *testing.T) {
 	t.Parallel()
 
 	t.Run("/*", func(t *testing.T) {
+		t.Parallel()
+
 		radix := &Radix[int]{}
 
 		paths := []string{
@@ -414,6 +426,8 @@ func TestRadix_wildcard_special(t *testing.T) {
 		}
 	})
 	t.Run("*", func(t *testing.T) {
+		t.Parallel()
+
 		radix := &Radix[int]{}
 		paths := []string{
 			"*",
@@ -440,6 +454,8 @@ func TestRadix_wildcard_special(t *testing.T) {
 		}
 	})
 	t.Run("/test* /test search", func(t *testing.T) {
+		t.Parallel()
+
 		radix := &Radix[int]{}
 
 		paths := []string{
@@ -463,6 +479,8 @@ func TestRadix_wildcard_special(t *testing.T) {
 		}
 	})
 	t.Run("greedy", func(t *testing.T) {
+		t.Parallel()
+
 		radix := &Radix[int]{}
 
 		paths := []string{
@@ -500,6 +518,8 @@ func TestRadix_wildcard_special(t *testing.T) {
 		}
 	})
 	t.Run("2", func(t *testing.T) {
+		t.Parallel()
+
 		paths := []string{
 			"/wildcard*",
 			"/wildcard/12345",
@@ -552,7 +572,7 @@ func BenchmarkRadix_wildcard_Get(b *testing.B) {
 	b.ReportAllocs()
 	b.ResetTimer()
 
-	for iter := 0; iter < b.N; iter++ {
+	for b.Loop() {
 		radix.Get("/wildcard-foo/fiz/biz")
 	}
 }

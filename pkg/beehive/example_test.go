@@ -2,6 +2,7 @@ package beehive_test
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log"
 	"net/http"
@@ -28,7 +29,7 @@ func Example_newRouterWithHttpServer() {
 	}
 
 	// start the server
-	if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+	if err := server.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 		// handle error
 		log.Fatalf("server error: %v\n", err)
 	}
@@ -210,7 +211,7 @@ func Example_context() {
 
 	// assign a context function
 	router.Context = func(r *http.Request) context.Context {
-		return context.WithValue(context.Background(), "router_name", "🍯") //nolint:staticcheck
+		return context.WithValue(context.Background(), "router_name", "🍯")
 	}
 
 	// define a handler func that takes the value from the context and returns it

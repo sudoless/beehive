@@ -44,8 +44,8 @@ func Parser(fields []string) beehive.HandlerFunc {
 }
 
 func (v *Values) parse(raw string) {
-	idx := 0
-	key, value := "", ""
+	var key, value string
+	var idx int
 
 	for {
 		idx = strings.IndexRune(raw, '=')

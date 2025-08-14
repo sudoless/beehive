@@ -5,6 +5,8 @@ import (
 )
 
 func Test_string_to_bytes_to_string(t *testing.T) {
+	t.Parallel()
+
 	myPath := "/foo/bar/baz/fiz"
 	myPathBytes := StringToBytes(myPath)
 

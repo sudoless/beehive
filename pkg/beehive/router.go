@@ -57,7 +57,7 @@ func DefaultContext(req *http.Request) context.Context {
 }
 
 func (router *Router) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	c := router.Context(r)
+	c := router.Context(r) //nolint:contextcheck
 	if c == nil {
 		c = r.Context()
 	}

@@ -37,7 +37,7 @@ func (node *radixNode[T]) add(path []byte, data T) {
 	if isWildcard {
 		path = path[:len(path)-1]
 	}
-	pathFull := path[:]
+	pathFull := path[:] //nolint:gocritic
 	commonIdx := commonPrefix(path, current.path)
 
 	for ; commonIdx == len(current.path); commonIdx = commonPrefix(path, current.path) {
@@ -54,30 +54,31 @@ func (node *radixNode[T]) add(path []byte, data T) {
 
 		path = path[commonIdx:]
 		lookupIdx := bytes.IndexByte(current.lookup, path[0])
-		if lookupIdx == -1 {
-			current.lookup = append(current.lookup, path[0])
-			child := &radixNode[T]{
-				path:        path,
-				pathFull:    pathFull,
-				data:        data,
-				dataIsValid: true,
-				isWildcard:  isWildcard,
-			}
-			current.children = append(current.children, child)
-
-			if !isWildcard {
-				if current.isWildcard {
-					child.wildcard = current
-				} else {
-					child.wildcard = current.wildcard
-				}
-			} else {
-				child.wildcard = current
-			}
-			return
+		if lookupIdx != -1 {
+			current = current.children[lookupIdx]
+			continue
 		}
 
-		current = current.children[lookupIdx]
+		current.lookup = append(current.lookup, path[0])
+		child := &radixNode[T]{
+			path:        path,
+			pathFull:    pathFull,
+			data:        data,
+			dataIsValid: true,
+			isWildcard:  isWildcard,
+		}
+		current.children = append(current.children, child)
+
+		if !isWildcard {
+			if current.isWildcard {
+				child.wildcard = current
+			} else {
+				child.wildcard = current.wildcard
+			}
+		} else {
+			child.wildcard = current
+		}
+		return
 	}
 
 	self := &radixNode[T]{}
@@ -200,7 +201,7 @@ type Radix[T any] struct {
 }
 
 func (radix *Radix[T]) Add(path string, data T) {
-	if len(path) == 0 {
+	if path == "" {
 		return
 	}
 
@@ -221,7 +222,7 @@ func (radix *Radix[T]) Add(path string, data T) {
 		return
 	}
 
-	radix.root.add([]byte(path)[:], data)
+	radix.root.add([]byte(path), data)
 }
 
 func (radix Radix[T]) Get(path string) (data T, found bool) {

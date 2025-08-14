@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"io"
 	"log"
-	"math/rand"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -141,14 +140,13 @@ func Test_Bees(t *testing.T) {
 	}
 
 	logBuffer := bytes.NewBuffer(nil)
-	rand.Seed(1)
 
 	router := beehive.NewRouter()
 
 	var idCounter int64
 	router.Context = func(r *http.Request) context.Context {
 		idCounter++
-		return context.WithValue(context.Background(), "__id", idCounter) //nolint:staticcheck
+		return context.WithValue(context.Background(), "__id", idCounter)
 	}
 
 	api := router.Group("/api", testBeesLogger(logBuffer), testBeesAuther(users))

@@ -80,7 +80,7 @@ func TestRateLimit(t *testing.T) {
 		}
 	}
 
-	for iter := 0; iter < 100; iter++ {
+	for range 100 {
 		w := httptest.NewRecorder()
 		r := httptest.NewRequest("GET", "/foo/bar", nil)
 		r.Header.Set("X-Ip", "127.0.0.1")
@@ -97,7 +97,7 @@ func TestRateLimit(t *testing.T) {
 		}
 	}
 
-	for iter := 0; iter < 100; iter++ {
+	for range 100 {
 		w := httptest.NewRecorder()
 		r := httptest.NewRequest("GET", "/foo/bar/default", nil)
 		r.Header.Set("X-Ip", "127.0.0.1")

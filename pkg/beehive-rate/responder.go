@@ -15,7 +15,7 @@ func (r *Responder) Respond(ctx *beehive.Context) {
 	ctx.ResponseWriter.WriteHeader(http.StatusTooManyRequests)
 }
 
-// test that Responder implements beehive.Responder
+// test that Responder implements beehive.Responder.
 var _ beehive.Responder = &Responder{}
 
 func (r *Responder) StatusCode(_ *beehive.Context) int {

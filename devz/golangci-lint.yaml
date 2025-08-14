@@ -1,0 +1,171 @@
+version: "2"
+
+run:
+  allow-parallel-runners: true
+  concurrency: 16
+  timeout: 5m
+  relative-path-mode: gomod
+linters:
+  enable:
+    # CORRECTNESS
+    - govet
+    - staticcheck
+    - canonicalheader             # use canonical syntax X-Example-Header
+    - exhaustive                  # exhaustive enum
+    - gocheckcompilerdirectives   # valid //go: directives
+    - gosmopolitan                # i18n/l10n anti-patterns
+    - iface                       # interface pollution
+    - mirror                      # using wrong bytes/strings package
+    - misspell                    # english spell check
+    - spancheck                   # improper use of OpenTelemetry spans
+    - wastedassign                # wasted assignment
+    # ASCII CODE
+    - asciicheck                  # all code must be ascii
+    - bidichk                     # find hidden Unicode
+    # PERFORMANCE
+    - gocritic                    # the goat
+    - copyloopvar                 # variable copied in loop
+    - gocognit                    # cognitive load
+    - fatcontext                  # misuse of context
+    - perfsprint                  # replaceable fmt.Sprintf
+    - prealloc                    # can pre-allocate slice
+    # SECURITY
+    - gosec                       # classic security checks
+    - reassign                    # ensure package var is not reassigned
+    # CLEANUP
+    - forbidigo                   # forbid go patterns (find debug code)
+    - goconst                     # stuff that should be a const
+    - godox                       # keyword comments
+    - goprintffuncname            # format functions end in `f`
+    - inamedparam                 # interface unnamed params
+    - intrange                    # new int range
+    - lll                         # long lines
+    - maintidx                    # maintainability index
+    - errname                     # var Err... = | type ...Error
+    - nestif                      # deeply nested if
+    - nolintlint                  # unneeded nolint comment
+    - predeclared                 # shadows go predeclared identifier
+    - unconvert                   # unnecessary type conversion
+    - unparam                     # unused param
+    - whitespace                  # unnecessary newlines
+    # RETURNS
+    - nakedret                    # returns with unspecified vars
+    - nilnil                      # nil, nil
+    - nilnesserr                  # returns nil when err was not nil
+    # TESTS
+    - paralleltest                # missing t.Parallel
+    - usetesting                  # use stdpkg functions in tests
+    # DUMB STUFF
+    - asasalint                   # using []any as ...any
+    - ineffassign                 # unused assignments to existing var
+    - unused                      # unused const, var, func, types
+    - containedctx                # context stored in struct
+    - contextcheck                # context chain broken
+    - durationcheck               # duration multiplication
+    - bodyclose                   # unclosed http body
+    - dogsled                     # blank assignments/declarations
+    - exptostd                    # /x/exp -> stdpkg
+    - noctx                       # using non-context function
+    # ERRORS
+    - errcheck                    # check for unchecked errors
+    - errorlint                   # error wrapping problems
+    - rowserrcheck                # check Rows.Err
+    # COMMENTS
+    - godot                       # end comments in dot .
+
+    # unused for this project
+    #- wrapcheck                   # ensure third-party pkg errs are wrapped
+    #- ireturn                     # accept interfaces, return types
+
+  # SETTINGS
+  settings:
+    exhaustive:
+      explicit-exhaustive-switch: true
+    copyloopvar:
+      check-alias: true
+    wrapcheck:
+      ignore-sigs:
+        - (io.Writer).Write
+      ignore-package-globs:
+        - go.sdls.io/*/internal/*
+    gocritic:
+      enable-all: true
+      disabled-checks:
+        - unnamedResult
+        - whyNoLint
+        - sloppyReassign
+      settings:
+        rangeValCopy:
+          sizeThreshold: 32
+    nakedret:
+      max-func-lines: 1
+    godot:
+      capital: true
+    govet:
+      enable-all: true
+      disable:
+        - fieldalignment
+    ireturn:
+      allow: [anon, error, empty, stdlib, generic]
+
+  # EXCLUDE
+  exclusions:
+    rules:
+      # ignore custom JSON tags
+      - text: "unknown JSON option \"limit:"
+        linters:
+          - staticcheck
+      - text: "unknown JSON option \"recurse:"
+        linters:
+          - staticcheck
+      - text: "unknown JSON option \"prefix:"
+        linters:
+          - staticcheck
+      # ignore rules for tests
+      - path: '_test.go'
+        text: 'SA1029:' # string context key
+        linters:
+            - staticcheck
+      - path: '_test.go'
+        linters:
+          - maintidx
+          - gocritic
+          - durationcheck
+          - lll
+          - gosmopolitan
+          - gocognit
+          - wrapcheck
+          - perfsprint
+          - goconst
+      # ignore certain gosec in tests
+      - path: '_test.go'
+        text: 'G(304|115|112)'
+        linters:
+          - gosec
+    paths:
+      - .cache
+      - vendor
+      - scripts
+      - docs
+      - deployment
+      - data
+      - devz
+      # development / prototypes
+      - cmd/benchmark-server/
+      - internal/trie/group.go
+      - pkg/beehive-proxy/
+issues:
+  fix: false
+  new: false
+  max-issues-per-linter: 0
+  max-same-issues: 0
+  uniq-by-line: false
+formatters:
+  enable:
+    - gofumpt
+    - goimports
+  settings:
+    goimports:
+      local-prefixes:
+        - go.sdls.io
+        - github.com/sudoless

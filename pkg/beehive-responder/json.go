@@ -6,8 +6,8 @@ import (
 	"go.sdls.io/beehive/pkg/beehive"
 )
 
-// JSON implements the beehive.Responder interface by calling json.Marshal on the given Object when Body is first called.
-// Any subsequent calls to Body will return the same data.
+// JSON implements the beehive.Responder interface by calling json.Marshal on the given Object when Body is first
+// called. Any subsequent calls to Body will return the same data.
 type JSON struct {
 	Object any
 	Code   int
@@ -15,7 +15,7 @@ type JSON struct {
 	data []byte
 }
 
-// test that JSON implements the beehive.Responder interface
+// test that JSON implements the beehive.Responder interface.
 var _ beehive.Responder = &JSON{}
 
 func (j *JSON) StatusCode(_ *beehive.Context) int {

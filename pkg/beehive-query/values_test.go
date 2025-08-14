@@ -60,6 +60,8 @@ func TestValues_Get(t *testing.T) {
 	}
 
 	t.Run("dict", func(t *testing.T) {
+		t.Parallel()
+
 		for k, v := range query.dict {
 			out := query.Get(k)
 			if query.values[v] != out {
@@ -68,6 +70,8 @@ func TestValues_Get(t *testing.T) {
 		}
 	})
 	t.Run("with parsing", func(t *testing.T) {
+		t.Parallel()
+
 		if out, _ := query.GetBool("bool"); out != true {
 			t.Errorf("unexpected value, %v", out)
 		}

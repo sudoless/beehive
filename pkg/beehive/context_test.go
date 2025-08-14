@@ -107,7 +107,7 @@ func testContextContractMiddleware(ctx *Context) Responder {
 func TestContextContract(t *testing.T) {
 	t.Parallel()
 
-	myCtx := context.WithValue(context.Background(), "foo", "bar") //nolint:staticcheck
+	myCtx := context.WithValue(context.Background(), "foo", "bar")
 
 	router := NewRouter()
 	router.Context = func(Request *http.Request) context.Context {

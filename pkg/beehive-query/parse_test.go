@@ -81,6 +81,8 @@ func Test_ValuesParser(t *testing.T) {
 
 	for query, values := range queries {
 		t.Run(query, func(t *testing.T) {
+			t.Parallel()
+
 			w := httptest.NewRecorder()
 			r := httptest.NewRequest(http.MethodGet, "/foo/bar?"+query, nil)
 			router.ServeHTTP(w, r)
@@ -117,7 +119,7 @@ func Benchmark_ValuesParser(b *testing.B) {
 		b.ReportAllocs()
 		b.ResetTimer()
 
-		for iter := 0; iter < b.N; iter++ {
+		for b.Loop() {
 			query.parse("foo=123&bar=456&baz=789&foo=000")
 		}
 
@@ -135,7 +137,7 @@ func Benchmark_ValuesParser(b *testing.B) {
 		b.ReportAllocs()
 		b.ResetTimer()
 
-		for iter := 0; iter < b.N; iter++ {
+		for b.Loop() {
 			values, _ = url.ParseQuery("foo=123&bar=456&baz=789")
 		}
 

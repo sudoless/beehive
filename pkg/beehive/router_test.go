@@ -67,7 +67,7 @@ func TestRouter_request_next(t *testing.T) {
 	)
 
 	w := httptest.NewRecorder()
-	r := httptest.NewRequest("GET", "/foo/bar", nil)
+	r := httptest.NewRequestWithContext(t.Context(), "GET", "/foo/bar", nil)
 	router.ServeHTTP(w, r)
 
 	expected := []string{
@@ -99,9 +99,11 @@ func TestRouter_HandleAny(t *testing.T) {
 	})
 
 	t.Run("methods", func(t *testing.T) {
+		t.Parallel()
+
 		for idx, method := range methods {
 			w := httptest.NewRecorder()
-			r := httptest.NewRequest(method, "/foo/bar", nil)
+			r := httptest.NewRequestWithContext(t.Context(), method, "/foo/bar", nil)
 			router.ServeHTTP(w, r)
 
 			if counter != idx+1 {
@@ -114,8 +116,10 @@ func TestRouter_HandleAny(t *testing.T) {
 		}
 	})
 	t.Run("not found", func(t *testing.T) {
+		t.Parallel()
+
 		w := httptest.NewRecorder()
-		r := httptest.NewRequest("GET", "/foo/bar/baz", nil)
+		r := httptest.NewRequestWithContext(t.Context(), "GET", "/foo/bar/baz", nil)
 		router.ServeHTTP(w, r)
 
 		if w.Code != http.StatusNotFound {
@@ -123,8 +127,10 @@ func TestRouter_HandleAny(t *testing.T) {
 		}
 	})
 	t.Run("method not allowed", func(t *testing.T) {
+		t.Parallel()
+
 		w := httptest.NewRecorder()
-		r := httptest.NewRequest("HEAD", "/foo/bar/baz", nil)
+		r := httptest.NewRequestWithContext(t.Context(), "HEAD", "/foo/bar/baz", nil)
 		router.ServeHTTP(w, r)
 
 		if w.Code != http.StatusNotFound {
@@ -137,9 +143,11 @@ func TestRouter_default(t *testing.T) {
 	t.Parallel()
 
 	t.Run("no handlers", func(t *testing.T) {
+		t.Parallel()
+
 		router := NewRouter()
 		w := httptest.NewRecorder()
-		r := httptest.NewRequest("GET", "/foo/bar", nil)
+		r := httptest.NewRequestWithContext(t.Context(), "GET", "/foo/bar", nil)
 		router.ServeHTTP(w, r)
 
 		if w.Code != http.StatusNotFound {
@@ -147,6 +155,8 @@ func TestRouter_default(t *testing.T) {
 		}
 	})
 	t.Run("empty router", func(t *testing.T) {
+		t.Parallel()
+
 		defer func() {
 			if r := recover(); r == nil {
 				t.Errorf("expected panic, got nil")
@@ -156,7 +166,7 @@ func TestRouter_default(t *testing.T) {
 		router := &Router{}
 		router.Context = DefaultContext
 		w := httptest.NewRecorder()
-		r := httptest.NewRequest("GET", "/foo/bar", nil)
+		r := httptest.NewRequestWithContext(t.Context(), "GET", "/foo/bar", nil)
 		router.ServeHTTP(w, r)
 
 		t.FailNow()
@@ -167,6 +177,8 @@ func TestRouter_context(t *testing.T) {
 	t.Parallel()
 
 	t.Run("nil", func(t *testing.T) {
+		t.Parallel()
+
 		router := NewRouter()
 		router.Context = func(r *http.Request) context.Context {
 			return nil
@@ -183,7 +195,7 @@ func TestRouter_context(t *testing.T) {
 		})
 
 		w := httptest.NewRecorder()
-		r := httptest.NewRequest("GET", "/foo/bar", nil)
+		r := httptest.NewRequestWithContext(t.Context(), "GET", "/foo/bar", nil)
 		router.ServeHTTP(w, r)
 
 		if !ok {
@@ -191,6 +203,8 @@ func TestRouter_context(t *testing.T) {
 		}
 	})
 	t.Run("closed", func(t *testing.T) {
+		t.Parallel()
+
 		router := NewRouter()
 		router.Context = func(_ *http.Request) context.Context {
 			ctx, cc := context.WithCancel(context.Background())
@@ -210,7 +224,7 @@ func TestRouter_context(t *testing.T) {
 		})
 
 		w := httptest.NewRecorder()
-		r := httptest.NewRequest("GET", "/foo/bar", nil)
+		r := httptest.NewRequestWithContext(t.Context(), "GET", "/foo/bar", nil)
 		router.ServeHTTP(w, r)
 
 		if w.Code != http.StatusTeapot {
@@ -223,6 +237,8 @@ func TestRouter_recovery(t *testing.T) {
 	t.Parallel()
 
 	t.Run("default Recover", func(t *testing.T) {
+		t.Parallel()
+
 		defer func() {
 			if rec := recover(); rec != nil {
 				t.Fatal("uncaught panic")
@@ -235,7 +251,7 @@ func TestRouter_recovery(t *testing.T) {
 		})
 
 		w := httptest.NewRecorder()
-		r := httptest.NewRequest("GET", "/foo/bar", nil)
+		r := httptest.NewRequestWithContext(t.Context(), "GET", "/foo/bar", nil)
 		router.ServeHTTP(w, r)
 
 		if w.Code != http.StatusInternalServerError {
@@ -247,6 +263,8 @@ func TestRouter_recovery(t *testing.T) {
 		}
 	})
 	t.Run("defined Recover", func(t *testing.T) {
+		t.Parallel()
+
 		defer func() {
 			if rec := recover(); rec != nil {
 				t.Fatal("uncaught panic")
@@ -269,7 +287,7 @@ func TestRouter_recovery(t *testing.T) {
 		})
 
 		w := httptest.NewRecorder()
-		r := httptest.NewRequest("GET", "/foo/bar", nil)
+		r := httptest.NewRequestWithContext(t.Context(), "GET", "/foo/bar", nil)
 		router.ServeHTTP(w, r)
 
 		if w.Code != http.StatusTeapot {
@@ -277,6 +295,8 @@ func TestRouter_recovery(t *testing.T) {
 		}
 	})
 	t.Run("defined Recover panic", func(t *testing.T) {
+		t.Parallel()
+
 		defer func() {
 			if rec := recover(); rec != nil {
 				if rec != "double panic on purpose" {
@@ -294,7 +314,7 @@ func TestRouter_recovery(t *testing.T) {
 		})
 
 		w := httptest.NewRecorder()
-		r := httptest.NewRequest("GET", "/foo/bar", nil)
+		r := httptest.NewRequestWithContext(t.Context(), "GET", "/foo/bar", nil)
 		router.ServeHTTP(w, r)
 
 		t.Fatal("should not reach here")
@@ -305,6 +325,8 @@ func TestRouter_Handle(t *testing.T) {
 	t.Parallel()
 
 	t.Run("empty path", func(t *testing.T) {
+		t.Parallel()
+
 		defer func() {
 			if rec := recover(); rec == nil {
 				t.Error("expected panic")
@@ -315,6 +337,8 @@ func TestRouter_Handle(t *testing.T) {
 		router.Handle("GET", "")
 	})
 	t.Run("no handlers", func(t *testing.T) {
+		t.Parallel()
+
 		defer func() {
 			if rec := recover(); rec == nil {
 				t.Error("expected panic")
@@ -325,6 +349,8 @@ func TestRouter_Handle(t *testing.T) {
 		router.Handle("GET", "/foo/bar")
 	})
 	t.Run("duplicate", func(t *testing.T) {
+		t.Parallel()
+
 		defer func() {
 			if rec := recover(); rec == nil {
 				t.Error("expected panic")
@@ -366,7 +392,7 @@ func Test_ResponseWriter(t *testing.T) {
 	})
 
 	w := httptest.NewRecorder()
-	r := httptest.NewRequest(http.MethodGet, "/foo", nil)
+	r := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/foo", nil)
 	router.ServeHTTP(w, r)
 
 	if w.Code != http.StatusOK {
@@ -386,7 +412,7 @@ func Test_ResponseWriter(t *testing.T) {
 	}
 }
 
-func TestRouter_InServer_Shutdown(t *testing.T) {
+func TestRouter_InServer_Shutdown(t *testing.T) { //nolint:paralleltest
 	port := "11406"
 
 	if testing.Short() {
@@ -426,9 +452,9 @@ func TestRouter_InServer_Shutdown(t *testing.T) {
 	}()
 
 	client := &http.Client{}
-	for iter := 0; iter < 100; iter++ {
+	for range 100 {
 		go func() {
-			req, err := http.NewRequest(http.MethodGet, "http://127.0.0.1:"+port+"/sleep", nil)
+			req, err := http.NewRequestWithContext(t.Context(), http.MethodGet, "http://127.0.0.1:"+port+"/sleep", nil)
 			if err != nil {
 				t.Errorf("expected no error, got %v", err)
 			}
@@ -479,7 +505,7 @@ func TestRouter_Superfluous(t *testing.T) {
 		router.Handle("GET", "/foo", hijackingHandler)
 
 		w := httptest.NewRecorder()
-		r := httptest.NewRequest(http.MethodGet, "/foo", nil)
+		r := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/foo", nil)
 		router.ServeHTTP(w, r)
 
 		if w.Code != http.StatusHTTPVersionNotSupported {
@@ -523,13 +549,13 @@ func BenchmarkRouter_ServeHTTP(b *testing.B) {
 		return responder
 	})
 
-	r := httptest.NewRequest(http.MethodGet, "/foo/bar", nil)
+	r := httptest.NewRequestWithContext(b.Context(), http.MethodGet, "/foo/bar", nil)
 	w := noopResponseWriter{}
 
 	b.ReportAllocs()
 	b.ResetTimer()
 
-	for iter := 0; iter < b.N; iter++ {
+	for b.Loop() {
 		router.ServeHTTP(w, r)
 	}
 }
@@ -576,7 +602,7 @@ func TestRouter_ServeHTTP_contextDone(t *testing.T) {
 		}
 	})
 
-	r := httptest.NewRequest(http.MethodGet, "/foo", nil)
+	r := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/foo", nil)
 	w := httptest.NewRecorder()
 
 	router.ServeHTTP(w, r)
@@ -647,7 +673,7 @@ func TestRouter_After(t *testing.T) {
 	})
 
 	w := httptest.NewRecorder()
-	r := httptest.NewRequest(http.MethodGet, "/foo", nil)
+	r := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/foo", nil)
 
 	router.ServeHTTP(w, r)
 
@@ -692,7 +718,7 @@ func TestRouter_After_panic(t *testing.T) {
 	})
 
 	w := httptest.NewRecorder()
-	r := httptest.NewRequest(http.MethodGet, "/foo", nil)
+	r := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/foo", nil)
 
 	router.ServeHTTP(w, r)
 
@@ -746,7 +772,7 @@ func FuzzRouter(f *testing.F) {
 	f.Fuzz(func(t *testing.T, path string) {
 		t.Run(path, func(t *testing.T) {
 			w := httptest.NewRecorder()
-			r, err := http.NewRequest(method, path, nil)
+			r, err := http.NewRequestWithContext(t.Context(), method, path, nil)
 			if err != nil {
 				t.Skipf("bad request with path %q, %v", path, err)
 				return
@@ -772,6 +798,8 @@ func FuzzRouter(f *testing.F) {
 }
 
 func TestNewRouter_direct(t *testing.T) {
+	t.Parallel()
+
 	router := &Router{}
 	router.WhenNotFound = func(ctx *Context) Responder {
 		return &DefaultResponder{
@@ -795,7 +823,7 @@ func TestNewRouter_direct(t *testing.T) {
 	})
 
 	w := httptest.NewRecorder()
-	r := httptest.NewRequest(http.MethodGet, "/foo", nil)
+	r := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/foo", nil)
 	router.ServeHTTP(w, r)
 
 	if w.Code != 200 {

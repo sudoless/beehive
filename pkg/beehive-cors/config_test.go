@@ -33,6 +33,8 @@ func TestCORS(t *testing.T) {
 	})
 
 	t.Run("pass", func(t *testing.T) {
+		t.Parallel()
+
 		r := httptest.NewRequest("GET", "/foo/bar", nil)
 		r.Header.Set("Origin", "https://example.com")
 		w := httptest.NewRecorder()
@@ -60,6 +62,8 @@ func TestCORS(t *testing.T) {
 		}
 	})
 	t.Run("deny", func(t *testing.T) {
+		t.Parallel()
+
 		r := httptest.NewRequest("GET", "/foo/bar", nil)
 		r.Header.Set("Origin", "https://api.example.com")
 		w := httptest.NewRecorder()
@@ -70,6 +74,8 @@ func TestCORS(t *testing.T) {
 		}
 	})
 	t.Run("bad origin url", func(t *testing.T) {
+		t.Parallel()
+
 		r := httptest.NewRequest("GET", "/foo/bar", nil)
 		r.Header.Set("Origin", "://://://")
 		w := httptest.NewRecorder()
@@ -80,6 +86,8 @@ func TestCORS(t *testing.T) {
 		}
 	})
 	t.Run("no origin, pass", func(t *testing.T) {
+		t.Parallel()
+
 		r := httptest.NewRequest("GET", "/foo/bar", nil)
 		r.Header.Set("Origin", "")
 		w := httptest.NewRecorder()
@@ -90,6 +98,8 @@ func TestCORS(t *testing.T) {
 		}
 	})
 	t.Run("pass OPTIONS", func(t *testing.T) {
+		t.Parallel()
+
 		r := httptest.NewRequest("OPTIONS", "/foo/bar", nil)
 		r.Header.Set("Origin", "https://example.com")
 		w := httptest.NewRecorder()
@@ -117,6 +127,8 @@ func TestCORS(t *testing.T) {
 		}
 	})
 	t.Run("deny OPTIONS", func(t *testing.T) {
+		t.Parallel()
+
 		r := httptest.NewRequest("OPTIONS", "/foo/bar", nil)
 		r.Header.Set("Origin", "https://api.example.com")
 		w := httptest.NewRecorder()

@@ -48,7 +48,7 @@ func (g *group) With(middleware ...HandlerFunc) Grouper {
 	return g
 }
 
-// test that Router implements Grouper
+// test that Router implements Grouper.
 var _ Grouper = &Router{}
 
 // Group creates a new routes group with the given prefix and the optional middleware which will be applied on all
@@ -112,6 +112,6 @@ func (router *Router) HandleAny(methods []string, path string, handlers ...Handl
 	return router
 }
 
-func (router *Router) With(middleware ...HandlerFunc) Grouper {
+func (router *Router) With(_ ...HandlerFunc) Grouper {
 	panic("beehive: router does not store middleware, use a Group/Grouper first")
 }
