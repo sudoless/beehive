@@ -2,6 +2,7 @@ package beehive
 
 import (
 	"context"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"reflect"
@@ -188,4 +189,103 @@ func TestContextAfter(t *testing.T) {
 	if !reflect.DeepEqual(want, list) {
 		t.Errorf("wanted %v, got %v", want, list)
 	}
+}
+
+func TestContext_goPropagation(t *testing.T) {
+	t.Parallel()
+
+	var ctxKey struct{}
+
+	t.Run("cancel child base", func(t *testing.T) {
+		t.Parallel()
+
+		base, bcc := context.WithCancelCause(context.Background())
+
+		ctx := &Context{
+			Context: context.WithValue(base, ctxKey, "bar"),
+		}
+
+		child, cc := context.WithCancel(ctx)
+		cc()
+
+		// when CHILD is canceled, CTX and BASE must NOT be canceled
+		if !errors.Is(child.Err(), context.Canceled) {
+			t.Errorf("expected canceled, got %v", child.Err())
+		}
+		if !errors.Is(ctx.Err(), nil) {
+			t.Errorf("expected nil, got %v", ctx.Err())
+		}
+		if !errors.Is(base.Err(), nil) {
+			t.Errorf("expected nil, got %v", base.Err())
+		}
+
+		bcc(errors.New("test"))
+
+		// when BASE is canceled, CTX, BASE and CHILD must be canceled
+		if !errors.Is(child.Err(), context.Canceled) {
+			t.Errorf("expected canceled, got %v", child.Err())
+		}
+		if !errors.Is(ctx.Err(), context.Canceled) {
+			t.Errorf("expected canceled, got %v", ctx.Err())
+		}
+		if !errors.Is(base.Err(), context.Canceled) {
+			t.Errorf("expected canceled, got %v", base.Err())
+		}
+
+		if err := context.Cause(child).Error(); err != "context canceled" {
+			t.Errorf("expected %q, got %q", "context canceled", err)
+		}
+		if err := context.Cause(ctx).Error(); err != "test" {
+			t.Errorf("expected %q, got %q", "test", err)
+		}
+		if err := context.Cause(base).Error(); err != "test" {
+			t.Errorf("expected %q, got %q", "test", err)
+		}
+	})
+
+	t.Run("cancel base", func(t *testing.T) {
+		t.Parallel()
+
+		base, bcc := context.WithCancelCause(context.Background())
+
+		ctx := &Context{
+			Context: context.WithValue(base, ctxKey, "bar"),
+		}
+
+		child, cc := context.WithCancel(ctx)
+		t.Cleanup(cc)
+
+		if !errors.Is(child.Err(), nil) {
+			t.Errorf("expected nil, got %v", child.Err())
+		}
+		if !errors.Is(ctx.Err(), nil) {
+			t.Errorf("expected nil, got %v", ctx.Err())
+		}
+		if !errors.Is(base.Err(), nil) {
+			t.Errorf("expected nil, got %v", base.Err())
+		}
+
+		bcc(errors.New("test"))
+
+		// when BASE is canceled, CTX, BASE and CHILD must be canceled
+		if !errors.Is(child.Err(), context.Canceled) {
+			t.Errorf("expected canceled, got %v", child.Err())
+		}
+		if !errors.Is(ctx.Err(), context.Canceled) {
+			t.Errorf("expected canceled, got %v", ctx.Err())
+		}
+		if !errors.Is(base.Err(), context.Canceled) {
+			t.Errorf("expected canceled, got %v", base.Err())
+		}
+
+		if err := context.Cause(child).Error(); err != "test" {
+			t.Errorf("expected %q, got %q", "test", err)
+		}
+		if err := context.Cause(ctx).Error(); err != "test" {
+			t.Errorf("expected %q, got %q", "test", err)
+		}
+		if err := context.Cause(base).Error(); err != "test" {
+			t.Errorf("expected %q, got %q", "test", err)
+		}
+	})
 }
