@@ -100,6 +100,9 @@ func (node *radixNode[T]) add(path []byte, data T) {
 		current.dataIsValid = true
 		current.pathFull = pathFull
 		current.isWildcard = isWildcard
+		if isWildcard {
+			current.propagateWildcard(nil)
+		}
 	} else {
 		child := &radixNode[T]{
 			data:        data,

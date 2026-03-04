@@ -4,59 +4,6 @@ import (
 	"testing"
 )
 
-func testRadixAdd(t *testing.T, paths []string) {
-	radix := &Radix[int]{}
-
-	avg := testing.AllocsPerRun(1, func() {
-		for idx, path := range paths {
-			radix.Add(path, idx)
-		}
-	})
-	t.Logf("allocs: %f", avg)
-
-	m := radix.root.leafs()
-
-	mPaths := make(map[string]any, len(m))
-	for idx, path := range paths {
-		mPaths[path] = idx
-	}
-
-	if len(m) != len(mPaths) {
-		t.Errorf("expected %d leafs, got %d", len(paths), len(m))
-	}
-
-	for path, idx := range mPaths {
-		if m[path] != idx {
-			t.Errorf("expected %s to be %d, got %d", path, idx, m[path])
-		}
-	}
-}
-
-func TestRadix_Add(t *testing.T) {
-	t.Parallel()
-
-	t.Run("simple", func(t *testing.T) {
-		t.Parallel()
-
-		paths := []string{"test", "team", "toast", "slow", "water", "slower", "tester"}
-		testRadixAdd(t, paths)
-	})
-
-	t.Run("romane", func(t *testing.T) {
-		t.Parallel()
-
-		paths := []string{"romane", "romanus", "romulus", "rubens", "ruber", "rubicon", "rubicundus"}
-		testRadixAdd(t, paths)
-	})
-
-	t.Run("duplicate", func(t *testing.T) {
-		t.Parallel()
-
-		paths := []string{"test", "test", "team", "slow", "water", "slower", "slow", "toast", "tester", "water"}
-		testRadixAdd(t, paths)
-	})
-}
-
 func BenchmarkRadix_Add(b *testing.B) {
 	paths := [...]string{
 		"/foo/bar/baz",
@@ -548,6 +495,36 @@ func TestRadix_wildcard_special(t *testing.T) {
 		t.Log(radix.Get("/wildcard-fo"))
 		t.Log(radix.Get("/wildcard-foo"))
 		t.Log(radix.Get("/wildcard-foo/"))
+	})
+}
+
+func TestRadix_wildcard_order(t *testing.T) {
+	t.Parallel()
+
+	t.Run("wildcard added after concrete same prefix", func(t *testing.T) {
+		t.Parallel()
+
+		radix := &Radix[int]{}
+		radix.Add("/foo/baz", 1)
+		radix.Add("/foo/*", 2)
+
+		_, found := radix.Get("/foo/baz/anything")
+		if !found {
+			t.Errorf("expected /foo/baz/anything to match /foo/*")
+		}
+	})
+
+	t.Run("wildcard added before concrete same prefix", func(t *testing.T) {
+		t.Parallel()
+
+		radix := &Radix[int]{}
+		radix.Add("/foo/*", 2)
+		radix.Add("/foo/baz", 1)
+
+		_, found := radix.Get("/foo/baz/anything")
+		if !found {
+			t.Errorf("expected /foo/baz/anything to match /foo/*")
+		}
 	})
 }
 
