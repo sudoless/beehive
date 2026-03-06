@@ -53,10 +53,4 @@ var (
 		Message: "not found",
 		Status:  http.StatusNotFound,
 	}
-
-	// TODO see what this is about.
-	defaultContextDoneResponder = &DefaultResponder{ //nolint:unused
-		Message: "context terminated",
-		Status:  http.StatusGatewayTimeout,
-	}
 )
