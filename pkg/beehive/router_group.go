@@ -25,7 +25,11 @@ func (router *Router) Handle(method, path string, handlers ...HandlerFunc) Group
 		panic("beehive: router path cannot be empty")
 	}
 
-	if len(handlers) == 0 {
+	allHandlers := make([]HandlerFunc, len(router.middleware)+len(handlers))
+	copy(allHandlers, router.middleware)
+	copy(allHandlers[len(router.middleware):], handlers)
+
+	if len(allHandlers) == 0 {
 		panic("beehive: router handler is empty")
 	}
 
@@ -52,7 +56,7 @@ func (router *Router) Handle(method, path string, handlers ...HandlerFunc) Group
 		}
 	}
 
-	radix.Add(path, handlers)
+	radix.Add(path, allHandlers)
 
 	return router
 }
@@ -66,6 +70,9 @@ func (router *Router) HandleAny(methods []string, path string, handlers ...Handl
 	return router
 }
 
-func (router *Router) With(_ ...HandlerFunc) Grouper {
-	panic("beehive: router does not store middleware, use a Group/Grouper first")
+// With appends priority middleware (or handlers) to the Router. These middleware will be used first on any Handle.
+// The middleware do not run on WhenNotFound or Recover.
+func (router *Router) With(middleware ...HandlerFunc) Grouper {
+	router.middleware = append(router.middleware, middleware...)
+	return router
 }

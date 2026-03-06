@@ -797,6 +797,215 @@ func FuzzRouter(f *testing.F) {
 	})
 }
 
+func TestRouter_With_basic(t *testing.T) {
+	t.Parallel()
+
+	trace := make([]string, 0)
+	router := NewRouter()
+	router.With(func(_ *Context) Responder {
+		trace = append(trace, "middleware")
+		return nil
+	})
+	router.Handle("GET", "/foo", func(_ *Context) Responder {
+		trace = append(trace, "handler")
+		return &DefaultResponder{Status: http.StatusOK, Message: "ok"}
+	})
+
+	w := httptest.NewRecorder()
+	r := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/foo", nil)
+	router.ServeHTTP(w, r)
+
+	expected := []string{"middleware", "handler"}
+	if !reflect.DeepEqual(trace, expected) {
+		t.Errorf("expected %v, got %v", expected, trace)
+	}
+	if w.Code != http.StatusOK {
+		t.Errorf("expected %d, got %d", http.StatusOK, w.Code)
+	}
+}
+
+func TestRouter_With_order(t *testing.T) {
+	t.Parallel()
+
+	trace := make([]string, 0)
+	router := NewRouter()
+	router.With(func(_ *Context) Responder {
+		trace = append(trace, "mw1")
+		return nil
+	})
+	router.With(func(_ *Context) Responder {
+		trace = append(trace, "mw2")
+		return nil
+	})
+	router.Handle("GET", "/foo", func(_ *Context) Responder {
+		trace = append(trace, "handler")
+		return &DefaultResponder{Status: http.StatusOK}
+	})
+
+	w := httptest.NewRecorder()
+	r := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/foo", nil)
+	router.ServeHTTP(w, r)
+
+	expected := []string{"mw1", "mw2", "handler"}
+	if !reflect.DeepEqual(trace, expected) {
+		t.Errorf("expected %v, got %v", expected, trace)
+	}
+}
+
+func TestRouter_With_short_circuit(t *testing.T) {
+	t.Parallel()
+
+	handlerCalled := false
+	router := NewRouter()
+	router.With(func(_ *Context) Responder {
+		return &DefaultResponder{Status: http.StatusUnauthorized, Message: "unauthorized"}
+	})
+	router.Handle("GET", "/foo", func(_ *Context) Responder {
+		handlerCalled = true
+		return &DefaultResponder{Status: http.StatusOK}
+	})
+
+	w := httptest.NewRecorder()
+	r := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/foo", nil)
+	router.ServeHTTP(w, r)
+
+	if handlerCalled {
+		t.Error("handler must not be called when router middleware short-circuits")
+	}
+	if w.Code != http.StatusUnauthorized {
+		t.Errorf("expected %d, got %d", http.StatusUnauthorized, w.Code)
+	}
+	if w.Body.String() != "unauthorized" {
+		t.Errorf("expected %q, got %q", "unauthorized", w.Body.String())
+	}
+}
+
+func TestRouter_With_all_routes(t *testing.T) {
+	t.Parallel()
+
+	counter := 0
+	router := NewRouter()
+	router.With(func(_ *Context) Responder {
+		counter++
+		return nil
+	})
+
+	router.HandleAny([]string{"GET", "POST", "PUT", "DELETE"}, "/foo", func(_ *Context) Responder {
+		return &DefaultResponder{Status: http.StatusOK}
+	})
+	router.Handle("GET", "/bar", func(_ *Context) Responder {
+		return &DefaultResponder{Status: http.StatusOK}
+	})
+
+	requests := []struct{ method, path string }{
+		{"GET", "/foo"},
+		{"POST", "/foo"},
+		{"PUT", "/foo"},
+		{"DELETE", "/foo"},
+		{"GET", "/bar"},
+	}
+	for _, req := range requests {
+		w := httptest.NewRecorder()
+		r := httptest.NewRequestWithContext(t.Context(), req.method, req.path, nil)
+		router.ServeHTTP(w, r)
+	}
+
+	if counter != len(requests) {
+		t.Errorf("expected middleware to run %d times, ran %d", len(requests), counter)
+	}
+}
+
+func TestRouter_With_group(t *testing.T) {
+	t.Parallel()
+
+	trace := make([]string, 0)
+	router := NewRouter()
+	router.With(func(_ *Context) Responder {
+		trace = append(trace, "router-mw")
+		return nil
+	})
+	router.Group("/api", func(_ *Context) Responder {
+		trace = append(trace, "group-mw")
+		return nil
+	}).Handle("GET", "/foo", func(_ *Context) Responder {
+		trace = append(trace, "handler")
+		return &DefaultResponder{Status: http.StatusOK}
+	})
+
+	w := httptest.NewRecorder()
+	r := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/api/foo", nil)
+	router.ServeHTTP(w, r)
+
+	expected := []string{"router-mw", "group-mw", "handler"}
+	if !reflect.DeepEqual(trace, expected) {
+		t.Errorf("expected %v, got %v", expected, trace)
+	}
+}
+
+func TestRouter_With_not_found(t *testing.T) {
+	t.Parallel()
+
+	mwCalled := false
+	router := NewRouter()
+	router.With(func(_ *Context) Responder {
+		mwCalled = true
+		return nil
+	})
+
+	w := httptest.NewRecorder()
+	r := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/does-not-exist", nil)
+	router.ServeHTTP(w, r)
+
+	if mwCalled {
+		t.Error("router middleware must not run for unmatched routes")
+	}
+	if w.Code != http.StatusNotFound {
+		t.Errorf("expected %d, got %d", http.StatusNotFound, w.Code)
+	}
+}
+
+func TestRouter_With_no_route_handlers(t *testing.T) {
+	t.Parallel()
+
+	defer func() {
+		if rec := recover(); rec != nil {
+			t.Errorf("unexpected panic: %v", rec)
+		}
+	}()
+
+	called := false
+	router := NewRouter()
+	router.With(func(_ *Context) Responder {
+		called = true
+		return &DefaultResponder{Status: http.StatusOK, Message: "middleware-only"}
+	})
+
+	// No explicit handlers — must not panic because router.middleware is non-empty.
+	router.Handle("GET", "/foo")
+
+	w := httptest.NewRecorder()
+	r := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/foo", nil)
+	router.ServeHTTP(w, r)
+
+	if !called {
+		t.Error("expected middleware to be called")
+	}
+	if w.Code != http.StatusOK {
+		t.Errorf("expected %d, got %d", http.StatusOK, w.Code)
+	}
+}
+
+func TestRouter_With_chaining(t *testing.T) {
+	t.Parallel()
+
+	router := NewRouter()
+	result := router.With(func(_ *Context) Responder { return nil })
+
+	if result != router {
+		t.Error("With must return the same *Router for chaining")
+	}
+}
+
 func TestNewRouter_direct(t *testing.T) {
 	t.Parallel()
 

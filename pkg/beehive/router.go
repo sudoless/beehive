@@ -33,7 +33,8 @@ type Router struct {
 	// AllowRouteOverwrite allows setting the same route multiple times. Not recommended.
 	AllowRouteOverwrite bool
 
-	methods []methodGroup
+	methods    []methodGroup
+	middleware []HandlerFunc
 }
 
 // NewRouter returns an empty router with only the DefaultContext function.
