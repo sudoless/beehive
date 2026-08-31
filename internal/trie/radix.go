@@ -182,9 +182,9 @@ func (node *radixNode[T]) get(path []byte) (T, bool) {
 }
 
 // has reports whether path is already registered. A trailing wildcard is stripped by add, so "/foo" and "/foo*" name
-// the same node and collide.
+// the same node and collide. An empty path is the root, which a bare "*" registers.
 func (node *radixNode[T]) has(path []byte) bool {
-	if len(path) == 0 || node == nil {
+	if node == nil {
 		return false
 	}
 
