@@ -2,6 +2,7 @@ package beehive_responder
 
 import (
 	"net/http/httptest"
+	"sync"
 	"testing"
 
 	"go.sdls.io/beehive/pkg/beehive"
@@ -77,4 +78,52 @@ func TestJSON(t *testing.T) {
 	if responder.StatusCode(nil) != w.Code {
 		t.Errorf("expected status code %d, got %d", w.Code, responder.StatusCode(nil))
 	}
+}
+
+// Content-Type must be set before WriteHeader, otherwise it never reaches the wire. Checking the recorder header map
+// directly is not enough, it keeps accepting writes after the status has been committed.
+func TestJSON_contentTypeReachesTheWire(t *testing.T) {
+	t.Parallel()
+
+	router := beehive.NewRouter()
+	router.Handle("GET", "/", func(_ *beehive.Context) beehive.Responder {
+		return &JSON{Object: map[string]bool{"ok": true}, Code: 200}
+	})
+
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, httptest.NewRequest("GET", "/", nil))
+
+	response := w.Result()
+	defer func() { _ = response.Body.Close() }()
+
+	if got := response.Header.Get("Content-Type"); got != "application/json" {
+		t.Errorf("expected content type 'application/json', got '%s'", got)
+	}
+}
+
+// The package doc encourages allocating global Responder values, so the lazy data cache must be safe to share.
+func TestJSON_sharedAcrossRequests(t *testing.T) { //nolint:paralleltest
+	responder := &JSON{Object: map[string]bool{"ok": true}, Code: 200}
+
+	router := beehive.NewRouter()
+	router.Handle("GET", "/", func(_ *beehive.Context) beehive.Responder {
+		return responder
+	})
+
+	const requests = 64
+
+	start := make(chan struct{})
+	var wg sync.WaitGroup
+	wg.Add(requests)
+
+	for range requests {
+		go func() {
+			defer wg.Done()
+			<-start
+			router.ServeHTTP(httptest.NewRecorder(), httptest.NewRequest("GET", "/", nil))
+		}()
+	}
+
+	close(start)
+	wg.Wait()
 }

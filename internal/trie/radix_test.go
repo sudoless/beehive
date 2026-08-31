@@ -526,6 +526,49 @@ func TestRadix_wildcard_order(t *testing.T) {
 			t.Errorf("expected /foo/baz/anything to match /foo/*")
 		}
 	})
+	t.Run("concrete route and subtree wildcard coexist", func(t *testing.T) {
+		t.Parallel()
+
+		tests := []struct {
+			name  string
+			build func(radix *Radix[int])
+		}{
+			{
+				name: "concrete first",
+				build: func(radix *Radix[int]) {
+					radix.Add("/foo", 1)
+					radix.Add("/foo/*", 2)
+				},
+			},
+			{
+				name: "wildcard first",
+				build: func(radix *Radix[int]) {
+					radix.Add("/foo/*", 2)
+					radix.Add("/foo", 1)
+				},
+			},
+		}
+
+		for _, test := range tests {
+			t.Run(test.name, func(t *testing.T) {
+				t.Parallel()
+
+				radix := &Radix[int]{}
+				test.build(radix)
+
+				for path, want := range map[string]int{"/foo": 1, "/foo/": 2, "/foo/bar": 2} {
+					got, found := radix.Get(path)
+					if !found || got != want {
+						t.Errorf("expected %s to be %d, got %d (found %t)", path, want, got, found)
+					}
+				}
+
+				if _, found := radix.Get("/foobar"); found {
+					t.Errorf("expected not to find /foobar")
+				}
+			})
+		}
+	})
 }
 
 func BenchmarkRadix_wildcard_Get(b *testing.B) {

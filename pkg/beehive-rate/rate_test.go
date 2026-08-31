@@ -3,6 +3,7 @@ package beehive_rate
 import (
 	"net/http"
 	"net/http/httptest"
+	"strconv"
 	"testing"
 	"time"
 
@@ -149,5 +150,77 @@ func TestRateLimit_noKey(t *testing.T) {
 
 	if testLimiter.rates[""] != 1 {
 		t.Errorf("expected %d, got %d", 1, testLimiter.rates[""])
+	}
+}
+
+// fixedLimiter reports a constant count and expiry, so header assertions do not depend on call order.
+type fixedLimiter struct {
+	current   int
+	expiresAt time.Time
+}
+
+func (l fixedLimiter) Limit(string) (int, time.Time) {
+	return l.current, l.expiresAt
+}
+
+func TestRateLimit_headersAreCanonical(t *testing.T) {
+	t.Parallel()
+
+	router := beehive.NewRouter()
+	router.Handle(http.MethodGet, "/", Limit("X-Ip", fixedLimiter{current: 1}, 10, nil),
+		func(_ *beehive.Context) beehive.Responder {
+			return &beehive.DefaultResponder{Status: http.StatusNoContent}
+		})
+
+	w := httptest.NewRecorder()
+	r := httptest.NewRequest(http.MethodGet, "/", nil)
+	router.ServeHTTP(w, r)
+
+	if got := w.Header().Get("X-RateLimit-Limit"); got != "10" {
+		t.Errorf("expected limit header %q, got %q", "10", got)
+	}
+	if got := w.Header().Get("X-RateLimit-Remaining"); got != "9" {
+		t.Errorf("expected remaining header %q, got %q", "9", got)
+	}
+}
+
+func TestRateLimit_remainingIsClamped(t *testing.T) {
+	t.Parallel()
+
+	router := beehive.NewRouter()
+	router.Handle(http.MethodGet, "/", Limit("X-Ip", fixedLimiter{current: 15}, 10, nil))
+
+	w := httptest.NewRecorder()
+	r := httptest.NewRequest(http.MethodGet, "/", nil)
+	router.ServeHTTP(w, r)
+
+	if got := w.Header().Get("X-RateLimit-Remaining"); got != "0" {
+		t.Errorf("expected remaining header %q, got %q", "0", got)
+	}
+}
+
+// Both X-RateLimit-Reset and Retry-After carry seconds until the limit resets, not a wall clock timestamp.
+func TestRateLimit_resetIsDeltaSeconds(t *testing.T) {
+	t.Parallel()
+
+	router := beehive.NewRouter()
+	router.Handle(http.MethodGet, "/", Limit("X-Ip", fixedLimiter{
+		current:   10,
+		expiresAt: time.Now().Add(90 * time.Second),
+	}, 10, nil))
+
+	w := httptest.NewRecorder()
+	r := httptest.NewRequest(http.MethodGet, "/", nil)
+	router.ServeHTTP(w, r)
+
+	for _, header := range []string{"X-RateLimit-Reset", "Retry-After"} {
+		seconds, err := strconv.Atoi(w.Header().Get(header))
+		if err != nil {
+			t.Errorf("expected %s to be an integer, got %q", header, w.Header().Get(header))
+			continue
+		}
+		if seconds < 88 || seconds > 90 {
+			t.Errorf("expected %s to be roughly 90, got %d", header, seconds)
+		}
 	}
 }
