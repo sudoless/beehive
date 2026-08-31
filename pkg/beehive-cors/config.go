@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"go.sdls.io/beehive/pkg/beehive"
-	beehiveResponder "go.sdls.io/beehive/pkg/beehive-responder"
 )
 
 type Config struct {
@@ -45,7 +44,7 @@ func (c *Config) Allow(origin string) bool {
 func (c *Config) HandlerFunc(preFlight bool) beehive.HandlerFunc {
 	var responderAllow beehive.Responder
 	if preFlight {
-		responderAllow = &beehiveResponder.Status{Code: http.StatusNoContent}
+		responderAllow = &beehive.DefaultResponder{Status: http.StatusNoContent}
 	}
 
 	responderForbidden := &beehive.DefaultResponder{
