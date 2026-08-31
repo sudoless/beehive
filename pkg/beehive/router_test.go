@@ -583,6 +583,8 @@ func TestRouter_Handle_wildcardCollision(t *testing.T) {
 		{name: "subtree wildcard then concrete", first: "/foo/*", second: "/foo"},
 		{name: "prefix wildcard then concrete below it", first: "/files/*", second: "/files/index.html"},
 		{name: "concrete then prefix wildcard above it", first: "/files/index.html", second: "/files/*"},
+		{name: "bare wildcard twice", first: "*", second: "*", wantPanic: true},
+		{name: "bare wildcard then concrete", first: "*", second: "/foo"},
 	}
 
 	for _, test := range tests {
@@ -1225,5 +1227,29 @@ func TestNewRouter_direct(t *testing.T) {
 
 	if w.Body.String() != "foo" {
 		t.Fatalf("unexpected response body %q", w.Body.String())
+	}
+}
+
+func TestRouter_ServeHTTP_nilRecover(t *testing.T) {
+	t.Parallel()
+
+	router := NewRouter()
+	router.Recover = nil
+
+	afterRan := false
+	router.After = func(_ *Context, _ Responder) { afterRan = true }
+	router.Handle(http.MethodGet, "/boom", func(_ *Context) Responder { panic("boom") })
+
+	var panicValue any
+	func() {
+		defer func() { panicValue = recover() }()
+		router.ServeHTTP(httptest.NewRecorder(), httptest.NewRequestWithContext(t.Context(), "GET", "/boom", nil))
+	}()
+
+	if panicValue != "boom" {
+		t.Errorf("expected the original panic to propagate, got %v", panicValue)
+	}
+	if !afterRan {
+		t.Error("expected Router.After to run before the panic propagated")
 	}
 }
