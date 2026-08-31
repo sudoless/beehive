@@ -165,7 +165,7 @@ func TestRouter_default(t *testing.T) {
 		}()
 
 		router := &Router{}
-		router.Context = DefaultContext
+		router.Context = func(r *http.Request) context.Context { return r.Context() }
 		w := httptest.NewRecorder()
 		r := httptest.NewRequestWithContext(t.Context(), "GET", "/foo/bar", nil)
 		router.ServeHTTP(w, r)
