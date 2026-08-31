@@ -3,6 +3,7 @@ package beehive_cors
 import (
 	"net/http"
 	"net/url"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -30,15 +31,7 @@ func (c *Config) Allow(origin string) bool {
 		return false
 	}
 
-	host := u.Hostname()
-
-	for _, h := range c.AllowHosts {
-		if h == host {
-			return true
-		}
-	}
-
-	return false
+	return slices.Contains(c.AllowHosts, u.Hostname())
 }
 
 func (c *Config) HandlerFunc(preFlight bool) beehive.HandlerFunc {

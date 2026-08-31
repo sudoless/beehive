@@ -45,11 +45,8 @@ func (router *Router) Handle(method, path string, handlers ...HandlerFunc) Group
 		radix = &router.methods[len(router.methods)-1].radix
 	}
 
-	if !router.AllowRouteOverwrite {
-		_, found := radix.Get(path)
-		if found {
-			panic("beehive: router route already defined")
-		}
+	if !router.AllowRouteOverwrite && radix.Has(path) {
+		panic("beehive: router route already defined")
 	}
 
 	radix.Add(path, allHandlers)

@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"reflect"
+	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -413,18 +414,24 @@ func Test_ResponseWriter(t *testing.T) {
 }
 
 func TestRouter_InServer_Shutdown(t *testing.T) { //nolint:paralleltest
-	port := "11406"
-
 	if testing.Short() {
 		t.Skip("skipping test in short mode")
 	}
 
-	var counter int32
+	const requests = 100
+
+	var counter atomic.Int32
+
+	// Shutdown must wait for in flight requests, so every request has to be inside the handler before it is called.
+	var inHandler, done sync.WaitGroup
+	inHandler.Add(requests)
+	done.Add(requests)
 
 	router := NewRouter()
-	router.Handle("GET", "/sleep", func(ctx *Context) Responder {
+	router.Handle("GET", "/sleep", func(_ *Context) Responder {
+		inHandler.Done()
 		time.Sleep(time.Millisecond * 100)
-		atomic.AddInt32(&counter, 1)
+		counter.Add(1)
 
 		return &DefaultResponder{
 			Message: "ok",
@@ -432,36 +439,34 @@ func TestRouter_InServer_Shutdown(t *testing.T) { //nolint:paralleltest
 		}
 	})
 
-	server := http.Server{
-		Addr:    ":" + port,
-		Handler: router,
-	}
-
-	l, err := net.Listen("tcp4", "127.0.0.1:"+port)
+	l, err := net.Listen("tcp4", "127.0.0.1:0")
 	if err != nil {
 		t.Fatal(err)
 	}
-	t.Log(l.Addr())
 
+	server := http.Server{Handler: router, ReadHeaderTimeout: time.Second}
 	go func() {
-		if serr := server.Serve(l); serr != nil {
-			if !errors.Is(serr, http.ErrServerClosed) {
-				t.Errorf("expected %v, got %v", http.ErrServerClosed, serr)
-			}
+		if serr := server.Serve(l); serr != nil && !errors.Is(serr, http.ErrServerClosed) {
+			t.Errorf("expected %v, got %v", http.ErrServerClosed, serr)
 		}
 	}()
 
-	client := &http.Client{}
-	for range 100 {
+	url := "http://" + l.Addr().String() + "/sleep"
+	client := &http.Client{Transport: &http.Transport{MaxConnsPerHost: requests}}
+
+	for range requests {
 		go func() {
-			req, err := http.NewRequestWithContext(t.Context(), http.MethodGet, "http://127.0.0.1:"+port+"/sleep", nil)
-			if err != nil {
-				t.Errorf("expected no error, got %v", err)
+			defer done.Done()
+
+			req, rerr := http.NewRequestWithContext(t.Context(), http.MethodGet, url, nil)
+			if rerr != nil {
+				t.Errorf("expected no error, got %v", rerr)
+				return
 			}
 
-			res, err := client.Do(req)
-			if err != nil {
-				t.Errorf("expected no error, got %v", err)
+			res, rerr := client.Do(req)
+			if rerr != nil {
+				t.Errorf("expected no error, got %v", rerr)
 				return
 			}
 			_ = res.Body.Close()
@@ -472,15 +477,16 @@ func TestRouter_InServer_Shutdown(t *testing.T) { //nolint:paralleltest
 		}()
 	}
 
-	time.Sleep(time.Millisecond * 10)
+	inHandler.Wait()
 
 	if err := server.Shutdown(context.Background()); err != nil {
 		t.Errorf("expected no error, got %v", err)
 	}
 
-	t.Log(counter)
-	if counter != 100 {
-		t.Errorf("expected %d, got %d", 100, counter)
+	done.Wait()
+
+	if got := counter.Load(); got != requests {
+		t.Errorf("expected %d, got %d", requests, got)
 	}
 }
 

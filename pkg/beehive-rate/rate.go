@@ -24,10 +24,7 @@ func Limit(header string, limiter Limiter, limit int, responderFunc ResponderFun
 
 		current, expiresAt := limiter.Limit(key)
 
-		remaining := limit - current
-		if remaining < 0 {
-			remaining = 0
-		}
+		remaining := max(limit-current, 0)
 
 		// Assigned directly to keep the handler allocation free, so the keys must already be in canonical form.
 		h["X-Ratelimit-Limit"] = headerLimit
@@ -38,11 +35,7 @@ func Limit(header string, limiter Limiter, limit int, responderFunc ResponderFun
 		}
 
 		if !expiresAt.IsZero() {
-			seconds := int(time.Until(expiresAt).Seconds())
-			if seconds < 0 {
-				seconds = 0
-			}
-			resetIn := []string{strconv.Itoa(seconds)}
+			resetIn := []string{strconv.Itoa(max(int(time.Until(expiresAt).Seconds()), 0))}
 
 			h["X-Ratelimit-Reset"] = resetIn
 			h["Retry-After"] = resetIn
