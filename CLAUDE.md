@@ -12,12 +12,6 @@ make lint-src                            # same, skipping tests
 The Makefile is imported boilerplate; only the targets below the `CUSTOM` line belong to this
 project. There is no `make test`, `make fmt` or `make dev-deps`.
 
-## The suite is intentionally red
-
-Failing tests record confirmed defects (SUW-81). **Never delete, skip or weaken one to get a green
-run** — each asserts behaviour that was decided on, so making it pass means fixing the production
-code. Delete this section once none are left.
-
 ## Invariants
 
 - **`Radix.Get` and `Router.ServeHTTP` allocate nothing.** `TestRadix_Get_0alloc` and
