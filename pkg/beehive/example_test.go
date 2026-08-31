@@ -20,7 +20,7 @@ func Example_newRouterWithHttpServer() {
 	// so you must attach it to a Server (or multiple Servers)
 
 	// let's create a new Server
-	server := http.Server{
+	server := http.Server{ //nolint:gosec // the example deliberately omits the timeouts it tells you to set
 		Addr:    "localhost:8080", // assign the listening address and port
 		Handler: router,           // pass the beehive.Router as the handler (as it implements ServeHTTP, http.Handler interface)
 
