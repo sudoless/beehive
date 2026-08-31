@@ -203,24 +203,40 @@ func TestRateLimit_remainingIsClamped(t *testing.T) {
 func TestRateLimit_resetIsDeltaSeconds(t *testing.T) {
 	t.Parallel()
 
-	router := beehive.NewRouter()
-	router.Handle(http.MethodGet, "/", Limit("X-Ip", fixedLimiter{
-		current:   10,
-		expiresAt: time.Now().Add(90 * time.Second),
-	}, 10, nil))
+	tests := []struct {
+		name     string
+		expires  time.Duration
+		wantLow  int
+		wantHigh int
+	}{
+		{name: "in the future", expires: 90 * time.Second, wantLow: 88, wantHigh: 90},
+		{name: "already expired", expires: -90 * time.Second, wantLow: 0, wantHigh: 0},
+	}
 
-	w := httptest.NewRecorder()
-	r := httptest.NewRequest(http.MethodGet, "/", nil)
-	router.ServeHTTP(w, r)
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
 
-	for _, header := range []string{"X-RateLimit-Reset", "Retry-After"} {
-		seconds, err := strconv.Atoi(w.Header().Get(header))
-		if err != nil {
-			t.Errorf("expected %s to be an integer, got %q", header, w.Header().Get(header))
-			continue
-		}
-		if seconds < 88 || seconds > 90 {
-			t.Errorf("expected %s to be roughly 90, got %d", header, seconds)
-		}
+			router := beehive.NewRouter()
+			router.Handle(http.MethodGet, "/", Limit("X-Ip", fixedLimiter{
+				current:   10,
+				expiresAt: time.Now().Add(test.expires),
+			}, 10, nil))
+
+			w := httptest.NewRecorder()
+			r := httptest.NewRequest(http.MethodGet, "/", nil)
+			router.ServeHTTP(w, r)
+
+			for _, header := range []string{"X-RateLimit-Reset", "Retry-After"} {
+				seconds, err := strconv.Atoi(w.Header().Get(header))
+				if err != nil {
+					t.Errorf("expected %s to be an integer, got %q", header, w.Header().Get(header))
+					continue
+				}
+				if seconds < test.wantLow || seconds > test.wantHigh {
+					t.Errorf("expected %s between %d and %d, got %d", header, test.wantLow, test.wantHigh, seconds)
+				}
+			}
+		})
 	}
 }
