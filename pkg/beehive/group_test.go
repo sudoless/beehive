@@ -173,21 +173,6 @@ func TestRouter_Group(t *testing.T) {
 	})
 }
 
-func TestRouter_Group_panic(t *testing.T) {
-	t.Parallel()
-
-	t.Run("wildcard ending", func(t *testing.T) {
-		defer func() {
-			if r := recover(); r == nil {
-				t.Error("expected panic")
-			}
-		}()
-
-		router := NewRouter()
-		_ = router.Group("/api/*")
-	})
-}
-
 func TestGroup_Handle_emptyPath(t *testing.T) {
 	t.Parallel()
 
@@ -242,62 +227,49 @@ func TestGroup_Handle_emptyPath_noPrefix(t *testing.T) {
 	t.Fatalf("expected panic")
 }
 
-func TestGroup_groupAfterWildcard(t *testing.T) {
+// A group prefix may not end in a wildcard: the group could only ever hold the single route registered with an empty
+// path, and anything appended to it would embed a literal asterisk mid-path. Register the wildcard route directly.
+func TestGroup_wildcardPrefix(t *testing.T) {
 	t.Parallel()
 
-	router := NewRouter()
-	g := router.Group("/api")
-	gwc := g.Group("/wildcard/*")
+	t.Run("panics on the router", func(t *testing.T) {
+		t.Parallel()
 
-	gwc.Handle("GET", "", func(_ *Context) Responder {
-		return &DefaultResponder{
-			Message: "wildcard",
-			Status:  200,
-		}
-	})
-
-	_, found := router.methods[0].radix.Get("/api/wildcard/foobar")
-	if !found {
-		t.Fatalf("expected to find /api/wildcard/foobar")
-	}
-
-	// caught by the router.Handle overwrite check
-	func() {
 		defer func() {
 			if r := recover(); r == nil {
 				t.Error("expected panic")
 			}
 		}()
 
-		gwc.Handle("GET", "/sub-path", func(_ *Context) Responder {
-			return &DefaultResponder{
-				Message: "sub-path",
-				Status:  200,
-			}
-		})
-	}()
-
-	gwcsp := gwc.Group("/yet-another-sub-path", func(ctx *Context) Responder {
-		return &DefaultResponder{
-			Message: "yet-another-sub-path",
-			Status:  200,
-		}
+		_ = NewRouter().Group("/api/*")
 	})
+	t.Run("panics on a nested group", func(t *testing.T) {
+		t.Parallel()
 
-	func() {
 		defer func() {
 			if r := recover(); r == nil {
 				t.Error("expected panic")
 			}
 		}()
 
-		gwcsp.Handle("GET", "", func(_ *Context) Responder {
-			return &DefaultResponder{
-				Message: "sub-path",
-				Status:  200,
-			}
+		_ = NewRouter().Group("/api").Group("/wildcard/*")
+	})
+	t.Run("register the wildcard route instead", func(t *testing.T) {
+		t.Parallel()
+
+		router := NewRouter()
+		router.Group("/api").Handle("GET", "/wildcard/*", func(_ *Context) Responder {
+			return &DefaultResponder{Message: "wildcard", Status: 200}
 		})
-	}()
+
+		w := httptest.NewRecorder()
+		r := httptest.NewRequestWithContext(t.Context(), "GET", "/api/wildcard/foobar", nil)
+		router.ServeHTTP(w, r)
+
+		if w.Body.String() != "wildcard" {
+			t.Errorf("expected %q, got %q", "wildcard", w.Body.String())
+		}
+	})
 }
 
 func TestGroup_With(t *testing.T) {

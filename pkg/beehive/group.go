@@ -17,6 +17,16 @@ type Grouper interface {
 	With(middleware ...HandlerFunc) Grouper
 }
 
+// groupPrefix panics if the prefix would nest routes under a wildcard, which the trie cannot represent: only a
+// trailing '*' is a wildcard, so a prefix ending in one would register routes containing a literal asterisk.
+func groupPrefix(pathPrefix string) string {
+	if pathPrefix != "" && pathPrefix[len(pathPrefix)-1] == '*' {
+		panic("beehive: router group path prefix cannot end with '*'")
+	}
+
+	return pathPrefix
+}
+
 type group struct {
 	parent     Grouper
 	prefix     string
@@ -26,7 +36,7 @@ type group struct {
 func (g *group) Group(pathPrefix string, middleware ...HandlerFunc) Grouper {
 	return &group{
 		parent:     g,
-		prefix:     pathPrefix,
+		prefix:     groupPrefix(pathPrefix),
 		middleware: middleware,
 	}
 }
