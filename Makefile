@@ -170,8 +170,8 @@ help:
 
 .PHONY: lint lint-src
 
-lint:
+lint: ## run golangci-lint over the whole module
 	@golangci-lint run --config=./devz/golangci-lint.yaml ./...
 
-lint-src:
+lint-src: ## run golangci-lint, skipping test files
 	@golangci-lint run --config=./devz/golangci-lint.yaml --tests=false ./...

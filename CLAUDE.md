@@ -1,62 +1,63 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+`go.sdls.io/beehive` — a zero-allocation HTTP router. Go 1.27.
 
 ## Commands
 
 ```sh
-# Run all tests (requires gotestsum, uses race detector)
-make test
-
-# Run a single test
-go test -race -run TestName ./path/to/pkg/...
-
-# Run benchmarks
-make bench
-# or directly:
-go test -bench=. -benchmem -benchtime=10s ./...
-
-# Lint
-make lint
-# (runs golangci-lint)
-
-# Format (uses gofumpt, stricter than gofmt)
-make fmt
-
-# Install dev dependencies (golangci-lint, gofumpt, gotestsum, etc.)
-make dev-deps
+go test -race ./...                      # full suite
+go test -race -run TestName ./pkg/...    # one test
+go test -bench=. -benchmem ./...         # benchmarks
+make lint                                # golangci-lint, config in devz/
+make lint-src                            # same, skipping tests
 ```
+
+The Makefile is mostly imported boilerplate (`info`, `tag-*`, `mk-update`); only the targets under
+the `CUSTOM` line are this project's. There is no `make test`, `make fmt` or `make dev-deps`.
+
+## The suite is intentionally red
+
+`develop` carries failing tests that record confirmed defects (SUW-81). **Do not delete, skip, or
+weaken them to get a green run.** Each asserts the behaviour the maintainer decided on; making one
+pass means fixing the production code. `go test ./... 2>&1 | grep FAIL` shows the current set.
 
 ## Architecture
 
-### Core Data Flow
-HTTP request → `Router.ServeHTTP` → looks up `radix.Get(r.URL.Path)` per-method trie → calls `[]HandlerFunc` chain → each returns a `Responder` or nil (continue).
+Request flow: `Router.ServeHTTP` → per-method `Radix.Get(r.URL.Path)` → `[]HandlerFunc` chain →
+first non-nil `Responder` wins and its `Respond` writes the response.
 
-### Key Types
-- **`HandlerFunc`** (`pkg/beehive/handler.go`): `func(ctx *Context) Responder` — both handlers and middleware use this signature. Return `nil` to continue the chain, return a `Responder` to short-circuit.
-- **`Responder`** (`pkg/beehive/responder.go`): interface with `Respond(*Context)`. Concrete types (JSON, status codes, etc.) live in `pkg/beehive-responder/`.
-- **`Context`** (`pkg/beehive/context.go`): per-request struct pooled via `sync.Pool`, wraps `http.ResponseWriter`, `*http.Request`, and `context.Context`.
+**`HandlerFunc`** (`pkg/beehive/handler.go`) — `func(*Context) Responder`. Handlers and middleware
+share this signature. Return `nil` to continue the chain, a `Responder` to short-circuit. `ctx.Next()`
+runs the rest of the chain inline, so middleware can wrap it.
 
-### Routing / Trie (`internal/trie/`)
-- Generic radix (compressed prefix) trie: `Radix[T]` stores any `T` per route.
-- One `Radix[[]HandlerFunc]` per HTTP method in `Router.methods`.
-- `Radix.Add(path, data)` — path ending in `*` is a wildcard prefix match.
-- `Radix.Get(path)` — zero allocations; uses `unsafe.StringToBytes` to avoid string→[]byte copy.
-- Wildcard fallback: each node carries a `.wildcard` pointer to the nearest ancestor wildcard. `propagateWildcard` must be called after any structural change that introduces a new wildcard node (split case in `add()`).
+**`Responder`** (`pkg/beehive/responder.go`) — `Respond(*Context)` writes, `StatusCode(*Context)`
+reports what was written *afterwards*. The two must agree. Implementations live in
+`pkg/beehive-responder/`.
 
-### Route Groups (`pkg/beehive/group.go`, `internal/trie/group.go`)
-- `Router` implements `Grouper[HandlerFunc]`.
-- `virtualGroup` accumulates prefix + middleware without touching the trie; only `Finalize` calls `trie.Add`.
-- `trieGroup` is the root grouper that owns the trie pointer (`*Radix[[]T]`).
+**`Context`** (`pkg/beehive/context.go`) — pooled via `sync.Pool`, wraps the `http.ResponseWriter`,
+`*http.Request` and a `context.Context`, and implements `context.Context` itself. `ctx.After(f)`
+registers cleanup that runs after the chain but **before** `Router.After`.
 
-### Middleware Packages (`pkg/beehive-*/`)
-Each sub-package is independent and provides middleware/utilities:
-- `beehive-cors` — CORS headers
-- `beehive-query` — zero-alloc query string parsing
-- `beehive-rate` — rate limiting
-- `beehive-responder` — common responders (JSON, redirect, etc.)
-- `beehive-auth`, `beehive-proxy`, `beehive-pprof` — auth, reverse proxy, pprof
+**Router hooks** — `Context` (per-request context factory), `WhenNotFound`, `Recover`, `After`.
+`NewRouter` installs the first three.
 
-### Performance Invariants
-- `Radix.Get` and `Router.ServeHTTP` must remain **zero-allocation**. The `TestRadix_Get_0alloc` and router-level alloc tests enforce this.
-- The `internal/unsafe` package provides `StringToBytes` for zero-copy string-to-slice conversion — use it only for read-only byte slice needs.
+**Trie** (`internal/trie/`) — generic radix tree, one `Radix[[]HandlerFunc]` per method. A path
+ending in `*` registers a wildcard prefix; each node carries a `.wildcard` pointer to its nearest
+ancestor wildcard, so `propagateWildcard` must run after any structural change that introduces one
+(the split case in `add`). Exact matches beat wildcards.
+
+**Groups** (`pkg/beehive/group.go`) — `Grouper` accumulates a path prefix and middleware without
+touching the trie; only `Handle`/`HandleAny` reach it. `Router` implements `Grouper`, so it is the
+root of every chain. Note `internal/trie/group.go` is a separate, unused prototype.
+
+## Invariants
+
+- **`Radix.Get` and `Router.ServeHTTP` allocate nothing.** Enforced by `TestRadix_Get_0alloc` and
+  `TestRouter_ServeHTTP_0alloc`. Check these before touching the request path.
+- `internal/unsafe.StringToBytes` gives a zero-copy view of a string — read-only, never mutate it.
+- `pkg/beehive-*` packages are independent add-ons; none may become a dependency of `pkg/beehive`.
+
+## Conventions
+
+Tests live beside their subject (`foo.go` → `foo_test.go`), are table-driven with `t.Run`, and call
+`t.Parallel()` unless they touch a port, a shared counter, or `AllocsPerRun`.
