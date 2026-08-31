@@ -23,7 +23,8 @@ type Router struct {
 	WhenNotFound func(ctx *Context) Responder
 
 	// Recover is called when a panic occurs while the response can still be influenced, which covers Context,
-	// WhenNotFound, the handler chain and Responder.Respond. A panic inside Recover itself is not recovered.
+	// WhenNotFound, the handler chain and Responder.Respond. A panic inside Recover itself is not recovered. A nil
+	// Recover lets the panic propagate unchanged, after the After callbacks have run.
 	Recover func(ctx *Context, panicErr any) Responder
 
 	// After is called after the request is handled and the response is sent. The *Context is still valid at this point.
@@ -42,10 +43,9 @@ type Router struct {
 	middleware []HandlerFunc
 }
 
-// NewRouter returns an empty router with only the DefaultContext function.
+// NewRouter returns a router with the default Recover and WhenNotFound responders.
 func NewRouter() *Router {
 	router := &Router{
-		Context: DefaultContext,
 		Recover: func(ctx *Context, panicErr any) Responder {
 			return defaultPanicResponder
 		},
@@ -55,11 +55,6 @@ func NewRouter() *Router {
 	}
 
 	return router
-}
-
-// DefaultContext returns the http.Request context. This is the same behaviour as returning a nil context.Context.
-func DefaultContext(req *http.Request) context.Context {
-	return req.Context()
 }
 
 func (router *Router) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -88,21 +83,26 @@ func (router *Router) serveHTTP(ctx *Context) {
 	r := ctx.Request
 
 	defer func() {
-		if err := recover(); err != nil {
-			res = router.Recover(ctx, err)
+		panicErr := recover()
+		if panicErr != nil && router.Recover != nil {
+			res = router.Recover(ctx, panicErr)
 			if res != nil {
 				res.Respond(ctx)
 			}
+
+			panicErr = nil
 		}
 
-		if len(ctx.afters) != 0 {
-			for _, f := range ctx.afters {
-				f()
-			}
+		for _, f := range ctx.afters {
+			f()
 		}
 
 		if router.After != nil {
 			router.After(ctx, res)
+		}
+
+		if panicErr != nil {
+			panic(panicErr)
 		}
 	}()
 
