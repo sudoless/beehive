@@ -26,6 +26,25 @@ type Context struct {
 	afters []func()
 }
 
+// release drops what the request left on the Context, leaving it zero except for the afters backing array, which
+// is kept so that registering a Context.After callback stays allocation free across pool reuse.
+//
+// Zeroing field by field instead of assigning a zero Context is deliberate. Carrying the array through a struct
+// assignment means naming afters in the literal, and a literal with a non-zero pointer field compiles to a copy
+// from a stack temporary rather than a clear. That one difference costs ~10ns per request, more than every field
+// here put together.
+func (c *Context) release() {
+	clear(c.afters)
+	c.afters = c.afters[:0]
+
+	c.ResponseWriter = nil
+	c.Request = nil
+	c.Context = nil
+	c.router = nil
+	c.handlers = nil
+	c.handlersIdx = 0
+}
+
 // String returns a formatted string with the contents of the context. This method has no guarantee of compatibility
 // between different versions of this package.
 func (c *Context) String() string {

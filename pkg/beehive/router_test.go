@@ -545,24 +545,44 @@ func (n noopResponder) StatusCode(_ *Context) int {
 
 func BenchmarkRouter_ServeHTTP(b *testing.B) {
 	responder := &noopResponder{}
+	cleanup := func() {}
 
-	router := NewRouter()
-	router.Context = func(r *http.Request) context.Context {
-		return context.Background()
+	benchmarks := []struct {
+		name    string
+		handler HandlerFunc
+	}{
+		{
+			name:    "plain",
+			handler: func(_ *Context) Responder { return responder },
+		},
+		{
+			// Reusing the afters backing array is what keeps this case off the allocator.
+			name: "with after callback",
+			handler: func(ctx *Context) Responder {
+				ctx.After(cleanup)
+				return responder
+			},
+		},
 	}
 
-	router.Handle("GET", "/foo/bar", func(ctx *Context) Responder {
-		return responder
-	})
+	for _, benchmark := range benchmarks {
+		b.Run(benchmark.name, func(b *testing.B) {
+			router := NewRouter()
+			router.Context = func(_ *http.Request) context.Context {
+				return context.Background()
+			}
+			router.Handle("GET", "/foo/bar", benchmark.handler)
 
-	r := httptest.NewRequestWithContext(b.Context(), http.MethodGet, "/foo/bar", nil)
-	w := noopResponseWriter{}
+			r := httptest.NewRequestWithContext(b.Context(), http.MethodGet, "/foo/bar", nil)
+			w := noopResponseWriter{}
 
-	b.ReportAllocs()
-	b.ResetTimer()
+			b.ReportAllocs()
+			b.ResetTimer()
 
-	for b.Loop() {
-		router.ServeHTTP(w, r)
+			for b.Loop() {
+				router.ServeHTTP(w, r)
+			}
+		})
 	}
 }
 

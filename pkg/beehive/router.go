@@ -59,19 +59,13 @@ func NewRouter() *Router {
 
 func (router *Router) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	ctx := contextPool.Get().(*Context)
-	*ctx = Context{
-		ResponseWriter: w,
-		Request:        r,
-		Context:        r.Context(),
-		router:         router,
-		afters:         ctx.afters,
-	}
+	ctx.ResponseWriter = w
+	ctx.Request = r
+	ctx.Context = r.Context()
+	ctx.router = router
 
-	// Clearing the elements rather than the slice keeps the backing array across pool reuse, so registering a
-	// Context.After callback stays allocation free, while still dropping the references those callbacks hold.
 	defer func() {
-		clear(ctx.afters)
-		*ctx = Context{afters: ctx.afters[:0]}
+		ctx.release()
 		contextPool.Put(ctx)
 	}()
 
