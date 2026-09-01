@@ -32,6 +32,7 @@ func (node *radixNode[T]) propagateWildcard(wildcard *radixNode[T]) {
 	}
 }
 
+//nolint:gocognit // the insert walk is one algorithm; splitting it hides the shared cursor state
 func (node *radixNode[T]) add(path []byte, data T) {
 	current := node
 	isWildcard := path[len(path)-1] == '*'
@@ -123,6 +124,7 @@ func (node *radixNode[T]) add(path []byte, data T) {
 	}
 }
 
+//nolint:gocognit // the lookup walk is the 0-alloc hot path; extracting steps costs a call per request
 func (node *radixNode[T]) get(path []byte) (T, bool) {
 	var zero T
 

@@ -71,6 +71,8 @@ linters:
   settings:
     lll:
       line-length: 140
+    gocognit:
+      min-complexity: 15
     exhaustive:
       explicit-exhaustive-switch: true
     copyloopvar:
