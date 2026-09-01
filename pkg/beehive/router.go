@@ -78,39 +78,49 @@ func (router *Router) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	router.serveHTTP(ctx)
 }
 
+func (router *Router) serveRecovery(ctx *Context, res Responder, panicErr any) {
+	if panicErr != nil && router.Recover != nil {
+		res = router.Recover(ctx, panicErr)
+		if res != nil {
+			res.Respond(ctx)
+		}
+
+		panicErr = nil
+	}
+
+	for _, f := range ctx.afters {
+		f()
+	}
+
+	if router.After != nil {
+		router.After(ctx, res)
+	}
+
+	if panicErr != nil {
+		panic(panicErr)
+	}
+}
+
 func (router *Router) serveHTTP(ctx *Context) {
 	var res Responder
-	r := ctx.Request
 
-	defer func() {
-		panicErr := recover()
-		if panicErr != nil && router.Recover != nil {
-			res = router.Recover(ctx, panicErr)
-			if res != nil {
-				res.Respond(ctx)
-			}
-
-			panicErr = nil
-		}
-
-		for _, f := range ctx.afters {
-			f()
-		}
-
-		if router.After != nil {
-			router.After(ctx, res)
-		}
-
-		if panicErr != nil {
-			panic(panicErr)
-		}
-	}()
+	defer func() { router.serveRecovery(ctx, res, recover()) }()
 
 	if router.Context != nil {
-		if c := router.Context(r); c != nil { //nolint:contextcheck
+		if c := router.Context(ctx.Request); c != nil { //nolint:contextcheck
 			ctx.Context = c
 		}
 	}
+
+	res = router.route(ctx)
+	if res != nil {
+		res.Respond(ctx)
+	}
+}
+
+// route matches the request against the registered methods and runs the handler chain, without responding.
+func (router *Router) route(ctx *Context) Responder {
+	r := ctx.Request
 
 	var radix *trie.Radix[[]HandlerFunc]
 	for idx, method := range router.methods {
@@ -121,32 +131,20 @@ func (router *Router) serveHTTP(ctx *Context) {
 	}
 
 	if radix == nil {
-		if res = router.WhenNotFound(ctx); res != nil {
-			res.Respond(ctx)
-		}
-		return
+		return router.WhenNotFound(ctx)
 	}
 
 	data, found := radix.Get(r.URL.Path)
 	if !found {
-		if res = router.WhenNotFound(ctx); res != nil {
-			res.Respond(ctx)
-		}
-		return
+		return router.WhenNotFound(ctx)
 	}
 
 	ctx.handlers = data
 	if len(ctx.handlers) == 0 {
-		if res = router.WhenNotFound(ctx); res != nil {
-			res.Respond(ctx)
-		}
-		return
+		return router.WhenNotFound(ctx)
 	}
 
-	res = router.next(ctx)
-	if res != nil {
-		res.Respond(ctx)
-	}
+	return router.next(ctx)
 }
 
 func (router *Router) next(ctx *Context) Responder {
