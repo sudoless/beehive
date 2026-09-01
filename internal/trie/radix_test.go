@@ -526,6 +526,49 @@ func TestRadix_wildcard_order(t *testing.T) {
 			t.Errorf("expected /foo/baz/anything to match /foo/*")
 		}
 	})
+	t.Run("concrete route and subtree wildcard coexist", func(t *testing.T) {
+		t.Parallel()
+
+		tests := []struct {
+			name  string
+			build func(radix *Radix[int])
+		}{
+			{
+				name: "concrete first",
+				build: func(radix *Radix[int]) {
+					radix.Add("/foo", 1)
+					radix.Add("/foo/*", 2)
+				},
+			},
+			{
+				name: "wildcard first",
+				build: func(radix *Radix[int]) {
+					radix.Add("/foo/*", 2)
+					radix.Add("/foo", 1)
+				},
+			},
+		}
+
+		for _, test := range tests {
+			t.Run(test.name, func(t *testing.T) {
+				t.Parallel()
+
+				radix := &Radix[int]{}
+				test.build(radix)
+
+				for path, want := range map[string]int{"/foo": 1, "/foo/": 2, "/foo/bar": 2} {
+					got, found := radix.Get(path)
+					if !found || got != want {
+						t.Errorf("expected %s to be %d, got %d (found %t)", path, want, got, found)
+					}
+				}
+
+				if _, found := radix.Get("/foobar"); found {
+					t.Errorf("expected not to find /foobar")
+				}
+			})
+		}
+	})
 }
 
 func BenchmarkRadix_wildcard_Get(b *testing.B) {
@@ -551,5 +594,42 @@ func BenchmarkRadix_wildcard_Get(b *testing.B) {
 
 	for b.Loop() {
 		radix.Get("/wildcard-foo/fiz/biz")
+	}
+}
+
+func TestRadix_Has(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name  string
+		add   []string
+		query string
+		want  bool
+	}{
+		{name: "registered concrete", add: []string{"/foo"}, query: "/foo", want: true},
+		{name: "unregistered", add: []string{"/foo"}, query: "/bar", want: false},
+		{name: "prefix of a registered path", add: []string{"/foobar"}, query: "/foo", want: false},
+		{name: "wildcard by its own path", add: []string{"/files/*"}, query: "/files/", want: true},
+		{name: "wildcard with its star", add: []string{"/files/*"}, query: "/files/*", want: true},
+		{name: "covered by an ancestor wildcard", add: []string{"/files/*"}, query: "/files/a.txt", want: false},
+		{name: "bare wildcard", add: []string{"*"}, query: "*", want: true},
+		{name: "bare wildcard, other path", add: []string{"*"}, query: "/foo", want: false},
+		{name: "empty query", add: []string{"/foo"}, query: "", want: false},
+		{name: "empty radix", query: "/foo", want: false},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+
+			radix := &Radix[int]{}
+			for idx, path := range test.add {
+				radix.Add(path, idx)
+			}
+
+			if got := radix.Has(test.query); got != test.want {
+				t.Errorf("Has(%q) = %v, want %v (registered %v)", test.query, got, test.want, test.add)
+			}
+		})
 	}
 }

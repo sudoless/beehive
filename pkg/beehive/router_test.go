@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"reflect"
+	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -164,7 +165,7 @@ func TestRouter_default(t *testing.T) {
 		}()
 
 		router := &Router{}
-		router.Context = DefaultContext
+		router.Context = func(r *http.Request) context.Context { return r.Context() }
 		w := httptest.NewRecorder()
 		r := httptest.NewRequestWithContext(t.Context(), "GET", "/foo/bar", nil)
 		router.ServeHTTP(w, r)
@@ -413,18 +414,24 @@ func Test_ResponseWriter(t *testing.T) {
 }
 
 func TestRouter_InServer_Shutdown(t *testing.T) { //nolint:paralleltest
-	port := "11406"
-
 	if testing.Short() {
 		t.Skip("skipping test in short mode")
 	}
 
-	var counter int32
+	const requests = 100
+
+	var counter atomic.Int32
+
+	// Shutdown must wait for in flight requests, so every request has to be inside the handler before it is called.
+	var inHandler, done sync.WaitGroup
+	inHandler.Add(requests)
+	done.Add(requests)
 
 	router := NewRouter()
-	router.Handle("GET", "/sleep", func(ctx *Context) Responder {
+	router.Handle("GET", "/sleep", func(_ *Context) Responder {
+		inHandler.Done()
 		time.Sleep(time.Millisecond * 100)
-		atomic.AddInt32(&counter, 1)
+		counter.Add(1)
 
 		return &DefaultResponder{
 			Message: "ok",
@@ -432,36 +439,34 @@ func TestRouter_InServer_Shutdown(t *testing.T) { //nolint:paralleltest
 		}
 	})
 
-	server := http.Server{
-		Addr:    ":" + port,
-		Handler: router,
-	}
-
-	l, err := net.Listen("tcp4", "127.0.0.1:"+port)
+	l, err := net.Listen("tcp4", "127.0.0.1:0")
 	if err != nil {
 		t.Fatal(err)
 	}
-	t.Log(l.Addr())
 
+	server := http.Server{Handler: router, ReadHeaderTimeout: time.Second}
 	go func() {
-		if serr := server.Serve(l); serr != nil {
-			if !errors.Is(serr, http.ErrServerClosed) {
-				t.Errorf("expected %v, got %v", http.ErrServerClosed, serr)
-			}
+		if serr := server.Serve(l); serr != nil && !errors.Is(serr, http.ErrServerClosed) {
+			t.Errorf("expected %v, got %v", http.ErrServerClosed, serr)
 		}
 	}()
 
-	client := &http.Client{}
-	for range 100 {
+	url := "http://" + l.Addr().String() + "/sleep"
+	client := &http.Client{Transport: &http.Transport{MaxConnsPerHost: requests}}
+
+	for range requests {
 		go func() {
-			req, err := http.NewRequestWithContext(t.Context(), http.MethodGet, "http://127.0.0.1:"+port+"/sleep", nil)
-			if err != nil {
-				t.Errorf("expected no error, got %v", err)
+			defer done.Done()
+
+			req, rerr := http.NewRequestWithContext(t.Context(), http.MethodGet, url, nil)
+			if rerr != nil {
+				t.Errorf("expected no error, got %v", rerr)
+				return
 			}
 
-			res, err := client.Do(req)
-			if err != nil {
-				t.Errorf("expected no error, got %v", err)
+			res, rerr := client.Do(req)
+			if rerr != nil {
+				t.Errorf("expected no error, got %v", rerr)
 				return
 			}
 			_ = res.Body.Close()
@@ -472,15 +477,16 @@ func TestRouter_InServer_Shutdown(t *testing.T) { //nolint:paralleltest
 		}()
 	}
 
-	time.Sleep(time.Millisecond * 10)
+	inHandler.Wait()
 
 	if err := server.Shutdown(context.Background()); err != nil {
 		t.Errorf("expected no error, got %v", err)
 	}
 
-	t.Log(counter)
-	if counter != 100 {
-		t.Errorf("expected %d, got %d", 100, counter)
+	done.Wait()
+
+	if got := counter.Load(); got != requests {
+		t.Errorf("expected %d, got %d", requests, got)
 	}
 }
 
@@ -539,24 +545,224 @@ func (n noopResponder) StatusCode(_ *Context) int {
 
 func BenchmarkRouter_ServeHTTP(b *testing.B) {
 	responder := &noopResponder{}
+	cleanup := func() {}
 
-	router := NewRouter()
-	router.Context = func(r *http.Request) context.Context {
-		return context.Background()
+	benchmarks := []struct {
+		name    string
+		handler HandlerFunc
+	}{
+		{
+			name:    "plain",
+			handler: func(_ *Context) Responder { return responder },
+		},
+		{
+			// Reusing the afters backing array is what keeps this case off the allocator.
+			name: "with after callback",
+			handler: func(ctx *Context) Responder {
+				ctx.After(cleanup)
+				return responder
+			},
+		},
 	}
 
-	router.Handle("GET", "/foo/bar", func(ctx *Context) Responder {
-		return responder
+	for _, benchmark := range benchmarks {
+		b.Run(benchmark.name, func(b *testing.B) {
+			router := NewRouter()
+			router.Context = func(_ *http.Request) context.Context {
+				return context.Background()
+			}
+			router.Handle("GET", "/foo/bar", benchmark.handler)
+
+			r := httptest.NewRequestWithContext(b.Context(), http.MethodGet, "/foo/bar", nil)
+			w := noopResponseWriter{}
+
+			b.ReportAllocs()
+			b.ResetTimer()
+
+			for b.Loop() {
+				router.ServeHTTP(w, r)
+			}
+		})
+	}
+}
+
+// A wildcard match is not a route definition, so a concrete route may still be registered under a wildcard prefix.
+// A concrete route and a wildcard sharing the exact same node is a collision the trie cannot represent, and panics.
+func TestRouter_Handle_wildcardCollision(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name      string
+		first     string
+		second    string
+		wantPanic bool
+	}{
+		{name: "concrete then same path wildcard", first: "/foo", second: "/foo*", wantPanic: true},
+		{name: "same path wildcard then concrete", first: "/foo*", second: "/foo", wantPanic: true},
+		{name: "concrete then subtree wildcard", first: "/foo", second: "/foo/*"},
+		{name: "subtree wildcard then concrete", first: "/foo/*", second: "/foo"},
+		{name: "prefix wildcard then concrete below it", first: "/files/*", second: "/files/index.html"},
+		{name: "concrete then prefix wildcard above it", first: "/files/index.html", second: "/files/*"},
+		{name: "bare wildcard twice", first: "*", second: "*", wantPanic: true},
+		{name: "bare wildcard then concrete", first: "*", second: "/foo"},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+
+			handler := func(_ *Context) Responder { return nil }
+
+			router := NewRouter()
+			router.Handle("GET", test.first, handler)
+
+			var panicValue any
+			func() {
+				defer func() { panicValue = recover() }()
+				router.Handle("GET", test.second, handler)
+			}()
+
+			if test.wantPanic && panicValue == nil {
+				t.Errorf("expected registering %q after %q to panic", test.second, test.first)
+			}
+			if !test.wantPanic && panicValue != nil {
+				t.Errorf("expected registering %q after %q to succeed, panicked with %v",
+					test.second, test.first, panicValue)
+			}
+		})
+	}
+}
+
+func TestRouter_ServeHTTP_concreteRouteUnderWildcard(t *testing.T) {
+	t.Parallel()
+
+	router := NewRouter()
+	router.Handle("GET", "/files/*", func(_ *Context) Responder {
+		return &DefaultResponder{Message: "wildcard", Status: http.StatusOK}
+	})
+	var panicValue any
+	func() {
+		defer func() { panicValue = recover() }()
+		router.Handle("GET", "/files/index.html", func(_ *Context) Responder {
+			return &DefaultResponder{Message: "concrete", Status: http.StatusOK}
+		})
+	}()
+	if panicValue != nil {
+		t.Fatalf("expected registering /files/index.html under /files/* to succeed, panicked with %v", panicValue)
+	}
+
+	for path, want := range map[string]string{"/files/index.html": "concrete", "/files/other.txt": "wildcard"} {
+		w := httptest.NewRecorder()
+		r := httptest.NewRequest("GET", path, nil)
+		router.ServeHTTP(w, r)
+
+		if got := w.Body.String(); got != want {
+			t.Errorf("expected GET %s to respond %q, got %q", path, want, got)
+		}
+	}
+}
+
+func TestRouter_ServeHTTP_0alloc(t *testing.T) { //nolint:paralleltest
+	responder := &noopResponder{}
+	cleanup := func() {}
+
+	tests := []struct {
+		name    string
+		handler HandlerFunc
+	}{
+		{
+			name:    "plain",
+			handler: func(_ *Context) Responder { return responder },
+		},
+		{
+			// The pooled Context must keep the afters backing array across requests.
+			name: "with after callback",
+			handler: func(ctx *Context) Responder {
+				ctx.After(cleanup)
+				return responder
+			},
+		},
+	}
+
+	//nolint:paralleltest // AllocsPerRun is unreliable when subtests run concurrently
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			router := NewRouter()
+			router.Context = func(_ *http.Request) context.Context {
+				return context.Background()
+			}
+			router.Handle("GET", "/foo/bar", test.handler)
+
+			r := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/foo/bar", nil)
+			w := noopResponseWriter{}
+
+			allocs := testing.AllocsPerRun(100, func() {
+				router.ServeHTTP(w, r)
+			})
+			if allocs != 0 {
+				t.Errorf("expected 0 allocations, got %v", allocs)
+			}
+		})
+	}
+}
+
+// Router.Context is a hook the Router installs by default, so a panic in it must reach Recover like any other
+// panic that can still influence the response.
+func TestRouter_ServeHTTP_contextFactoryPanic(t *testing.T) {
+	t.Parallel()
+
+	router := NewRouter()
+	router.Context = func(_ *http.Request) context.Context {
+		panic("context factory failed")
+	}
+	router.Recover = func(_ *Context, panicErr any) Responder {
+		return &DefaultResponder{Message: panicErr.(string), Status: http.StatusInternalServerError}
+	}
+
+	w := httptest.NewRecorder()
+	r := httptest.NewRequest("GET", "/", nil)
+
+	var panicValue any
+	func() {
+		defer func() { panicValue = recover() }()
+		router.ServeHTTP(w, r)
+	}()
+
+	if panicValue != nil {
+		t.Fatalf("expected the panic to be recovered, it escaped with %v", panicValue)
+	}
+	if w.Code != http.StatusInternalServerError {
+		t.Errorf("expected status code %d, got %d", http.StatusInternalServerError, w.Code)
+	}
+	if w.Body.String() != "context factory failed" {
+		t.Errorf("expected Recover to see the panic value, got %q", w.Body.String())
+	}
+}
+
+// A nil Context leaves the http.Request context in place, so a zero Router is usable.
+func TestRouter_ServeHTTP_nilContextFactory(t *testing.T) {
+	t.Parallel()
+
+	router := NewRouter()
+	router.Context = nil
+	router.Handle("GET", "/", func(_ *Context) Responder {
+		return &DefaultResponder{Message: "ok", Status: http.StatusOK}
 	})
 
-	r := httptest.NewRequestWithContext(b.Context(), http.MethodGet, "/foo/bar", nil)
-	w := noopResponseWriter{}
+	w := httptest.NewRecorder()
+	r := httptest.NewRequest("GET", "/", nil)
 
-	b.ReportAllocs()
-	b.ResetTimer()
-
-	for b.Loop() {
+	var panicValue any
+	func() {
+		defer func() { panicValue = recover() }()
 		router.ServeHTTP(w, r)
+	}()
+
+	if panicValue != nil {
+		t.Fatalf("expected a nil Context to be allowed, panicked with %v", panicValue)
+	}
+	if w.Body.String() != "ok" {
+		t.Errorf("expected body %q, got %q", "ok", w.Body.String())
 	}
 }
 
@@ -1041,5 +1247,29 @@ func TestNewRouter_direct(t *testing.T) {
 
 	if w.Body.String() != "foo" {
 		t.Fatalf("unexpected response body %q", w.Body.String())
+	}
+}
+
+func TestRouter_ServeHTTP_nilRecover(t *testing.T) {
+	t.Parallel()
+
+	router := NewRouter()
+	router.Recover = nil
+
+	afterRan := false
+	router.After = func(_ *Context, _ Responder) { afterRan = true }
+	router.Handle(http.MethodGet, "/boom", func(_ *Context) Responder { panic("boom") })
+
+	var panicValue any
+	func() {
+		defer func() { panicValue = recover() }()
+		router.ServeHTTP(httptest.NewRecorder(), httptest.NewRequestWithContext(t.Context(), "GET", "/boom", nil))
+	}()
+
+	if panicValue != "boom" {
+		t.Errorf("expected the original panic to propagate, got %v", panicValue)
+	}
+	if !afterRan {
+		t.Error("expected Router.After to run before the panic propagated")
 	}
 }

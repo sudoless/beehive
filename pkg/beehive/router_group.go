@@ -8,13 +8,9 @@ var _ Grouper = &Router{}
 // Group creates a new routes group with the given prefix and the optional middleware which will be applied on all
 // future calls to this group.
 func (router *Router) Group(pathPrefix string, middleware ...HandlerFunc) Grouper {
-	if pathPrefix != "" && pathPrefix[len(pathPrefix)-1] == '*' {
-		panic("beehive: router group path prefix cannot end with '*'")
-	}
-
 	return &group{
 		parent:     router,
-		prefix:     pathPrefix,
+		prefix:     groupPrefix(pathPrefix),
 		middleware: middleware,
 	}
 }
@@ -49,11 +45,8 @@ func (router *Router) Handle(method, path string, handlers ...HandlerFunc) Group
 		radix = &router.methods[len(router.methods)-1].radix
 	}
 
-	if !router.AllowRouteOverwrite {
-		_, found := radix.Get(path)
-		if found {
-			panic("beehive: router route already defined")
-		}
+	if !router.AllowRouteOverwrite && radix.Has(path) {
+		panic("beehive: router route already defined")
 	}
 
 	radix.Add(path, allHandlers)

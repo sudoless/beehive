@@ -11,35 +11,40 @@ type Limiter interface {
 	Limit(key string) (int, time.Time)
 }
 
+// Limit rejects requests once the Limiter reports the key at or above limit. It reports the state on every response
+// through the X-RateLimit-Limit and X-RateLimit-Remaining headers, and on a rejection adds X-RateLimit-Reset and
+// Retry-After, both in seconds until the limit resets.
 func Limit(header string, limiter Limiter, limit int, responderFunc ResponderFunc) beehive.HandlerFunc {
 	headerLimit := []string{strconv.Itoa(limit)}
 
 	return func(ctx *beehive.Context) beehive.Responder {
 		key := ctx.Request.Header.Get(header)
 
-		w := ctx.ResponseWriter
-		h := w.Header()
+		h := ctx.ResponseWriter.Header()
 
 		current, expiresAt := limiter.Limit(key)
 
-		h["X-RateLimit-Limit"] = headerLimit
-		h["X-RateLimit-Remaining"] = []string{strconv.Itoa(limit - current)}
+		remaining := max(limit-current, 0)
 
-		if current >= limit {
-			if !expiresAt.IsZero() {
-				expiresAtSeconds := expiresAt.UTC().Second()
+		// Assigned directly to keep the handler allocation free, so the keys must already be in canonical form.
+		h["X-Ratelimit-Limit"] = headerLimit
+		h["X-Ratelimit-Remaining"] = []string{strconv.Itoa(remaining)}
 
-				h["X-RateLimit-Reset"] = []string{strconv.Itoa(expiresAtSeconds)}
-				h["Retry-After"] = []string{strconv.Itoa(expiresAtSeconds - int(time.Now().UTC().Unix()))}
-			}
-
-			if responderFunc != nil {
-				return responderFunc(key, limit, current, expiresAt)
-			} else {
-				return defaultResponder
-			}
+		if current < limit {
+			return nil
 		}
 
-		return nil
+		if !expiresAt.IsZero() {
+			resetIn := []string{strconv.Itoa(max(int(time.Until(expiresAt).Seconds()), 0))}
+
+			h["X-Ratelimit-Reset"] = resetIn
+			h["Retry-After"] = resetIn
+		}
+
+		if responderFunc != nil {
+			return responderFunc(key, limit, current, expiresAt)
+		}
+
+		return defaultResponder
 	}
 }

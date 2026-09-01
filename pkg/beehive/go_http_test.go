@@ -32,6 +32,62 @@ func TestWrapHttpHandlerFunc(t *testing.T) {
 			t.Errorf("expected body %q, got %q", "Hello, World!", w.Body.String())
 		}
 	})
+	t.Run("beehive context values are visible", func(t *testing.T) {
+		t.Parallel()
+
+		type key struct{}
+
+		h := func(w http.ResponseWriter, r *http.Request) {
+			if got := r.Context().Value(key{}); got != "from-beehive" {
+				w.WriteHeader(http.StatusInternalServerError)
+				return
+			}
+			w.WriteHeader(http.StatusNoContent)
+		}
+
+		router := NewRouter()
+		router.Handle("GET", "/foo",
+			func(ctx *Context) Responder {
+				ctx.WithValue(key{}, "from-beehive")
+				return nil
+			},
+			WrapHttpHandlerFunc(h))
+
+		w := httptest.NewRecorder()
+		r := httptest.NewRequest("GET", "/foo", nil)
+		router.ServeHTTP(w, r)
+
+		if w.Code != http.StatusNoContent {
+			t.Errorf("expected status code %d, got %d", http.StatusNoContent, w.Code)
+		}
+	})
+	t.Run("nil beehive context", func(t *testing.T) {
+		t.Parallel()
+
+		h := func(w http.ResponseWriter, r *http.Request) {
+			if r.Context() == nil {
+				w.WriteHeader(http.StatusInternalServerError)
+				return
+			}
+			w.WriteHeader(http.StatusNoContent)
+		}
+
+		router := NewRouter()
+		router.Handle("GET", "/foo",
+			func(ctx *Context) Responder {
+				ctx.Context = nil
+				return nil
+			},
+			WrapHttpHandlerFunc(h))
+
+		w := httptest.NewRecorder()
+		r := httptest.NewRequest("GET", "/foo", nil)
+		router.ServeHTTP(w, r)
+
+		if w.Code != http.StatusNoContent {
+			t.Errorf("expected status code %d, got %d", http.StatusNoContent, w.Code)
+		}
+	})
 	t.Run("no response written", func(t *testing.T) {
 		t.Parallel()
 

@@ -3,12 +3,12 @@ package beehive_cors
 import (
 	"net/http"
 	"net/url"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
 
 	"go.sdls.io/beehive/pkg/beehive"
-	beehiveResponder "go.sdls.io/beehive/pkg/beehive-responder"
 )
 
 type Config struct {
@@ -31,21 +31,13 @@ func (c *Config) Allow(origin string) bool {
 		return false
 	}
 
-	host := u.Hostname()
-
-	for _, h := range c.AllowHosts {
-		if h == host {
-			return true
-		}
-	}
-
-	return false
+	return slices.Contains(c.AllowHosts, u.Hostname())
 }
 
 func (c *Config) HandlerFunc(preFlight bool) beehive.HandlerFunc {
 	var responderAllow beehive.Responder
 	if preFlight {
-		responderAllow = &beehiveResponder.Status{Code: http.StatusNoContent}
+		responderAllow = &beehive.DefaultResponder{Status: http.StatusNoContent}
 	}
 
 	responderForbidden := &beehive.DefaultResponder{

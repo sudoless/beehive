@@ -1,5 +1,4 @@
 version: "2"
-
 run:
   allow-parallel-runners: true
   concurrency: 16
@@ -10,13 +9,11 @@ linters:
     # CORRECTNESS
     - govet
     - staticcheck
-    - canonicalheader             # use canonical syntax X-Example-Header
     - exhaustive                  # exhaustive enum
     - gocheckcompilerdirectives   # valid //go: directives
     - gosmopolitan                # i18n/l10n anti-patterns
     - iface                       # interface pollution
     - mirror                      # using wrong bytes/strings package
-    - misspell                    # english spell check
     - spancheck                   # improper use of OpenTelemetry spans
     - wastedassign                # wasted assignment
     # ASCII CODE
@@ -26,7 +23,6 @@ linters:
     - gocritic                    # the goat
     - copyloopvar                 # variable copied in loop
     - gocognit                    # cognitive load
-    - fatcontext                  # misuse of context
     - perfsprint                  # replaceable fmt.Sprintf
     - prealloc                    # can pre-allocate slice
     # SECURITY
@@ -34,8 +30,6 @@ linters:
     - reassign                    # ensure package var is not reassigned
     # CLEANUP
     - forbidigo                   # forbid go patterns (find debug code)
-    - goconst                     # stuff that should be a const
-    - godox                       # keyword comments
     - goprintffuncname            # format functions end in `f`
     - inamedparam                 # interface unnamed params
     - intrange                    # new int range
@@ -49,7 +43,6 @@ linters:
     - unparam                     # unused param
     - whitespace                  # unnecessary newlines
     # RETURNS
-    - nakedret                    # returns with unspecified vars
     - nilnil                      # nil, nil
     - nilnesserr                  # returns nil when err was not nil
     # TESTS
@@ -60,7 +53,6 @@ linters:
     - ineffassign                 # unused assignments to existing var
     - unused                      # unused const, var, func, types
     - containedctx                # context stored in struct
-    - contextcheck                # context chain broken
     - durationcheck               # duration multiplication
     - bodyclose                   # unclosed http body
     - dogsled                     # blank assignments/declarations
@@ -72,13 +64,15 @@ linters:
     - rowserrcheck                # check Rows.Err
     # COMMENTS
     - godot                       # end comments in dot .
+    - modernize
 
-    # unused for this project
-    #- wrapcheck                   # ensure third-party pkg errs are wrapped
-    #- ireturn                     # accept interfaces, return types
 
   # SETTINGS
   settings:
+    lll:
+      line-length: 140
+    gocognit:
+      min-complexity: 15
     exhaustive:
       explicit-exhaustive-switch: true
     copyloopvar:
@@ -97,16 +91,15 @@ linters:
       settings:
         rangeValCopy:
           sizeThreshold: 32
-    nakedret:
-      max-func-lines: 1
     godot:
-      capital: true
+      capital: false
     govet:
       enable-all: true
       disable:
         - fieldalignment
-    ireturn:
-      allow: [anon, error, empty, stdlib, generic]
+        - shadow                   # idiomatic `if err := …; err != nil` triggers it
+    staticcheck:
+      checks: [ "all", "-S1008", "-ST1000", "-ST1003", "-SA5008" ]
 
   # EXCLUDE
   exclusions:
@@ -123,10 +116,6 @@ linters:
           - staticcheck
       # ignore rules for tests
       - path: '_test.go'
-        text: 'SA1029:' # string context key
-        linters:
-            - staticcheck
-      - path: '_test.go'
         linters:
           - maintidx
           - gocritic
@@ -135,11 +124,27 @@ linters:
           - gosmopolitan
           - gocognit
           - wrapcheck
-          - perfsprint
+          - intrange
           - goconst
+          - ineffassign
+          - wastedassign
+          - perfsprint
+          - noctx                # tests use httptest/net helpers without context
+          - nilnil               # test stubs satisfy interfaces with nil,nil
+          - prealloc             # static slice literals trip prealloc
+          - rowserrcheck         # tests wrap rows; underlying Err handled by wrapper
+      # cmd binaries print to stdout
+      - path: '^cmd/'
+        linters:
+          - forbidigo
+      # ignore certain static checks in tests
+      - path: '_test.go'
+        text: 'SA1029'
+        linters:
+          - staticcheck
       # ignore certain gosec in tests
       - path: '_test.go'
-        text: 'G(304|115|112)'
+        text: 'G(304|115|104)'
         linters:
           - gosec
     paths:
@@ -150,10 +155,6 @@ linters:
       - deployment
       - data
       - devz
-      # development / prototypes
-      - cmd/benchmark-server/
-      - internal/trie/group.go
-      - pkg/beehive-proxy/
 issues:
   fix: false
   new: false

@@ -2,6 +2,7 @@ package trie
 
 import (
 	"bytes"
+	"maps"
 
 	"go.sdls.io/beehive/internal/unsafe"
 )
@@ -31,6 +32,7 @@ func (node *radixNode[T]) propagateWildcard(wildcard *radixNode[T]) {
 	}
 }
 
+//nolint:gocognit // the insert walk is one algorithm; splitting it hides the shared cursor state
 func (node *radixNode[T]) add(path []byte, data T) {
 	current := node
 	isWildcard := path[len(path)-1] == '*'
@@ -122,6 +124,7 @@ func (node *radixNode[T]) add(path []byte, data T) {
 	}
 }
 
+//nolint:gocognit // the lookup walk is the 0-alloc hot path; extracting steps costs a call per request
 func (node *radixNode[T]) get(path []byte) (T, bool) {
 	var zero T
 
@@ -180,16 +183,34 @@ func (node *radixNode[T]) get(path []byte) (T, bool) {
 	return zero, false
 }
 
+// has reports whether path is already registered. A trailing wildcard is stripped by add, so "/foo" and "/foo*" name
+// the same node and collide. An empty path is the root, which a bare "*" registers.
+func (node *radixNode[T]) has(path []byte) bool {
+	if node == nil {
+		return false
+	}
+
+	current := node
+	ptr := commonPrefix(path, current.path)
+
+	for ptr < len(path) {
+		lookupIdx := bytes.IndexByte(current.lookup, path[ptr])
+		if lookupIdx == -1 {
+			return false
+		}
+
+		current = current.children[lookupIdx]
+		ptr += len(current.path)
+	}
+
+	return current.dataIsValid && bytes.Equal(path, current.pathFull)
+}
+
 func (node *radixNode[T]) leafs() map[string]T {
 	m := make(map[string]T)
 
-	if len(node.children) != 0 {
-		for _, child := range node.children {
-			innerM := child.leafs()
-			for k, v := range innerM {
-				m[k] = v
-			}
-		}
+	for _, child := range node.children {
+		maps.Copy(m, child.leafs())
 	}
 
 	if node.dataIsValid {
@@ -230,4 +251,18 @@ func (radix *Radix[T]) Add(path string, data T) {
 
 func (radix Radix[T]) Get(path string) (data T, found bool) {
 	return radix.root.get(unsafe.StringToBytes(path))
+}
+
+// Has reports whether path is already registered, which is not the same question as Get: a path matched by an
+// ancestor wildcard is found by Get but is not itself registered.
+func (radix Radix[T]) Has(path string) bool {
+	if path == "" {
+		return false
+	}
+
+	if path[len(path)-1] == '*' {
+		path = path[:len(path)-1]
+	}
+
+	return radix.root.has(unsafe.StringToBytes(path))
 }

@@ -289,3 +289,43 @@ func TestContext_goPropagation(t *testing.T) {
 		}
 	})
 }
+
+// A Context returned to the pool still holding the request keeps that request, its body and the response writer
+// alive for as long as the pool holds the Context, so release must leave nothing behind but the afters array.
+func TestContext_release(t *testing.T) {
+	t.Parallel()
+
+	ctx := &Context{
+		ResponseWriter: noopResponseWriter{},
+		Request:        httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/foo", nil),
+		Context:        context.Background(),
+		router:         NewRouter(),
+		handlers:       []HandlerFunc{func(_ *Context) Responder { return nil }},
+		handlersIdx:    1,
+		afters:         []func(){func() {}},
+	}
+	afters := ctx.afters
+
+	ctx.release()
+
+	fields := reflect.ValueOf(*ctx)
+	if n := fields.NumField(); n != 7 {
+		t.Fatalf("Context has %d fields, release and this test only know 7", n)
+	}
+
+	for i := range fields.NumField() {
+		if name := fields.Type().Field(i).Name; name != "afters" && !fields.Field(i).IsZero() {
+			t.Errorf("release left %s set", name)
+		}
+	}
+
+	if len(ctx.afters) != 0 {
+		t.Errorf("expected afters emptied, got len %d", len(ctx.afters))
+	}
+	if cap(ctx.afters) != cap(afters) {
+		t.Errorf("expected the afters backing array kept, cap %d became %d", cap(afters), cap(ctx.afters))
+	}
+	if afters[0] != nil {
+		t.Error("expected the afters elements cleared")
+	}
+}

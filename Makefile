@@ -166,3 +166,12 @@ help:
 
 
 #### CUSTOM # Anything under the CUSTOM line is migrated by the mk-update command to the new Makefile version
+
+
+.PHONY: lint lint-src
+
+lint: ## run golangci-lint over the whole module
+	@golangci-lint run --config=./devz/golangci-lint.yaml ./...
+
+lint-src: ## run golangci-lint, skipping test files
+	@golangci-lint run --config=./devz/golangci-lint.yaml --tests=false ./...
