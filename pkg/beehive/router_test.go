@@ -546,42 +546,70 @@ func (n noopResponder) StatusCode(_ *Context) int {
 func BenchmarkRouter_ServeHTTP(b *testing.B) {
 	responder := &noopResponder{}
 	cleanup := func() {}
+	pass := func(_ *Context) Responder { return nil }
+
+	type ctxKey struct{}
 
 	benchmarks := []struct {
-		name    string
-		handler HandlerFunc
+		name     string
+		handlers []HandlerFunc
 	}{
 		{
-			name:    "plain",
-			handler: func(_ *Context) Responder { return responder },
+			name:     "plain",
+			handlers: []HandlerFunc{func(_ *Context) Responder { return responder }},
 		},
 		{
 			// Reusing the afters backing array is what keeps this case off the allocator.
 			name: "with after callback",
-			handler: func(ctx *Context) Responder {
+			handlers: []HandlerFunc{func(ctx *Context) Responder {
 				ctx.After(cleanup)
 				return responder
+			}},
+		},
+		{
+			// Three middleware, one of them setting a value, the shape of a typical authenticated route.
+			name: "middleware chain",
+			handlers: []HandlerFunc{
+				pass,
+				func(ctx *Context) Responder {
+					ctx.WithValue(ctxKey{}, responder)
+					return nil
+				},
+				pass,
+				func(ctx *Context) Responder {
+					_ = ctx.Value(ctxKey{})
+					return responder
+				},
 			},
 		},
 	}
 
 	for _, benchmark := range benchmarks {
+		router := NewRouter()
+		router.Context = func(_ *http.Request) context.Context {
+			return context.Background()
+		}
+		router.Handle("GET", "/foo/bar", benchmark.handlers...)
+
+		r := httptest.NewRequestWithContext(b.Context(), http.MethodGet, "/foo/bar", nil)
+		w := noopResponseWriter{}
+
 		b.Run(benchmark.name, func(b *testing.B) {
-			router := NewRouter()
-			router.Context = func(_ *http.Request) context.Context {
-				return context.Background()
-			}
-			router.Handle("GET", "/foo/bar", benchmark.handler)
-
-			r := httptest.NewRequestWithContext(b.Context(), http.MethodGet, "/foo/bar", nil)
-			w := noopResponseWriter{}
-
 			b.ReportAllocs()
-			b.ResetTimer()
 
 			for b.Loop() {
 				router.ServeHTTP(w, r)
 			}
+		})
+
+		b.Run(benchmark.name+" parallel", func(b *testing.B) {
+			b.ReportAllocs()
+
+			b.RunParallel(func(pb *testing.PB) {
+				for pb.Next() {
+					router.ServeHTTP(w, r)
+				}
+			})
 		})
 	}
 }
