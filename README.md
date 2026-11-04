@@ -13,7 +13,8 @@ other packages can be used up to the users' discretion.
 
 - 🍯 Sweet and _simple_
 - [0 dependencies](go.mod)
-- 0 memory allocation routing
+- 0 allocation route lookup, and one small allocation per request: its `Context`, which is never reused, so it
+  stays a valid `context.Context` for anything still holding it after the request
 - Route grouping, prefixing
 - Wildcard matching
 - Middleware and handler chaining
@@ -49,47 +50,22 @@ Any addition that uses dependencies must be implemented in a separate package.
 
 ## Benchmarks
 
-```
-name                   time/op
+`go test -run='^$' -bench=. -benchmem -count=10 ./...`, summarised with `benchstat`, on linux/arm64 with 6 cores and
+Go 1.27:
 
-pkg:go.sdls.io/beehive/internal/trie goos:darwin goarch:arm64
-Radix_Add-10           1.70µs ± 1%
-Radix_Get-10            200ns ± 2%
-Radix_wildcard_Get-10  13.7ns ± 1%
+| Benchmark | time/op | B/op | allocs/op |
+|---|---|---|---|
+| `Radix_Add` | 2.11µs ± 7% | 3.41KiB | 68 |
+| `Radix_Get` | 195ns ± 3% | 0 | 0 |
+| `Radix_wildcard_Get` | 14.3ns ± 2% | 0 | 0 |
+| `Router_ServeHTTP/plain` | 55.7ns ± 2% | 48 | 1 |
+| `Router_ServeHTTP/plain_parallel` | 36.5ns ± 8% | 48 | 1 |
+| `Router_ServeHTTP/with_after_callback` | 65.0ns ± 5% | 48 | 1 |
+| `Router_ServeHTTP/with_after_callback_parallel` | 51.0ns ± 8% | 48 | 1 |
+| `Router_ServeHTTP/middleware_chain` | 96.6ns ± 7% | 96 | 2 |
+| `Router_ServeHTTP/middleware_chain_parallel` | 70.0ns ± 6% | 96 | 2 |
+| `_ValuesParser/beehive` | 77.0ns ± 1% | 0 | 0 |
+| `_ValuesParser/net/url` | 270ns ± 4% | 448 | 5 |
 
-pkg:go.sdls.io/beehive/pkg/beehive goos:darwin goarch:arm64
-Router_ServeHTTP-10    33.6ns ± 1%
-
-pkg:go.sdls.io/beehive/pkg/beehive-query goos:darwin goarch:arm64
-_ValuesParser-10        156ns ± 3%
-```
-
-```
-name                   alloc/op
-
-pkg:go.sdls.io/beehive/internal/trie goos:darwin goarch:arm64
-Radix_Add-10           3.50kB ± 0%
-Radix_Get-10            0.00B     
-Radix_wildcard_Get-10   0.00B
-     
-pkg:go.sdls.io/beehive/pkg/beehive goos:darwin goarch:arm64
-Router_ServeHTTP-10     0.00B
-     
-pkg:go.sdls.io/beehive/pkg/beehive-query goos:darwin goarch:arm64
-_ValuesParser-10        48.0B ± 0%
-```
-
-```
-name                   allocs/op
-
-pkg:go.sdls.io/beehive/internal/trie goos:darwin goarch:arm64
-Radix_Add-10             68.0 ± 0%
-Radix_Get-10             0.00     
-Radix_wildcard_Get-10    0.00
-     
-pkg:go.sdls.io/beehive/pkg/beehive goos:darwin goarch:arm64
-Router_ServeHTTP-10      0.00
-     
-pkg:go.sdls.io/beehive/pkg/beehive-query goos:darwin goarch:arm64
-_ValuesParser-10         1.00 ± 0%
-```
+The one allocation of every `Router_ServeHTTP` case is the request's 48-byte `Context`; the middleware chain's second
+is the `context.WithValue` one of its middleware makes.
