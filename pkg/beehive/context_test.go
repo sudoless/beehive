@@ -290,27 +290,24 @@ func TestContext_goPropagation(t *testing.T) {
 	})
 }
 
-// A Context returned to the pool still holding the request keeps that request, its body and the response writer
-// alive for as long as the pool holds the Context, so release must leave nothing behind but the afters array.
-func TestContext_release(t *testing.T) {
+// A chain returned to the pool still holding the router or the handlers keeps them alive for as long as the pool holds
+// the chain, so release must leave nothing behind but the afters array.
+func TestChain_release(t *testing.T) {
 	t.Parallel()
 
-	ctx := &Context{
-		ResponseWriter: noopResponseWriter{},
-		Request:        httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/foo", nil),
-		Context:        context.Background(),
-		router:         NewRouter(),
-		handlers:       []HandlerFunc{func(_ *Context) Responder { return nil }},
-		handlersIdx:    1,
-		afters:         []func(){func() {}},
+	ch := &chain{
+		router:      NewRouter(),
+		handlers:    []HandlerFunc{func(_ *Context) Responder { return nil }},
+		handlersIdx: 1,
+		afters:      []func(){func() {}},
 	}
-	afters := ctx.afters
+	afters := ch.afters
 
-	ctx.release()
+	ch.release()
 
-	fields := reflect.ValueOf(*ctx)
-	if n := fields.NumField(); n != 7 {
-		t.Fatalf("Context has %d fields, release and this test only know 7", n)
+	fields := reflect.ValueOf(*ch)
+	if n := fields.NumField(); n != 4 {
+		t.Fatalf("chain has %d fields, release and this test only know 4", n)
 	}
 
 	for i := range fields.NumField() {
@@ -319,11 +316,11 @@ func TestContext_release(t *testing.T) {
 		}
 	}
 
-	if len(ctx.afters) != 0 {
-		t.Errorf("expected afters emptied, got len %d", len(ctx.afters))
+	if len(ch.afters) != 0 {
+		t.Errorf("expected afters emptied, got len %d", len(ch.afters))
 	}
-	if cap(ctx.afters) != cap(afters) {
-		t.Errorf("expected the afters backing array kept, cap %d became %d", cap(afters), cap(ctx.afters))
+	if cap(ch.afters) != cap(afters) {
+		t.Errorf("expected the afters backing array kept, cap %d became %d", cap(afters), cap(ch.afters))
 	}
 	if afters[0] != nil {
 		t.Error("expected the afters elements cleared")
