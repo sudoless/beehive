@@ -58,15 +58,20 @@ func NewRouter() *Router {
 }
 
 func (router *Router) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	ctx := contextPool.Get().(*Context)
-	ctx.ResponseWriter = w
-	ctx.Request = r
-	ctx.Context = r.Context()
-	ctx.router = router
+	ch := chainPool.Get().(*chain)
+	ch.router = router
+
+	ctx := &Context{
+		ResponseWriter: w,
+		Request:        r,
+		Context:        r.Context(),
+		chain:          ch,
+	}
 
 	defer func() {
-		ctx.release()
-		contextPool.Put(ctx)
+		ctx.chain = nil
+		ch.release()
+		chainPool.Put(ch)
 	}()
 
 	router.serveHTTP(ctx)
@@ -82,7 +87,7 @@ func (router *Router) serveRecovery(ctx *Context, res Responder, panicErr any) {
 		panicErr = nil
 	}
 
-	for _, f := range ctx.afters {
+	for _, f := range ctx.chain.afters {
 		f()
 	}
 
@@ -133,8 +138,8 @@ func (router *Router) route(ctx *Context) Responder {
 		return router.WhenNotFound(ctx)
 	}
 
-	ctx.handlers = data
-	if len(ctx.handlers) == 0 {
+	ctx.chain.handlers = data
+	if len(data) == 0 {
 		return router.WhenNotFound(ctx)
 	}
 
@@ -143,15 +148,16 @@ func (router *Router) route(ctx *Context) Responder {
 
 func (router *Router) next(ctx *Context) Responder {
 	for {
-		if ctx.handlersIdx >= len(ctx.handlers) {
+		ch := ctx.chain
+		if ch.handlersIdx >= len(ch.handlers) {
 			return nil
 		}
 
-		res := ctx.handlers[ctx.handlersIdx](ctx)
+		res := ch.handlers[ch.handlersIdx](ctx)
 		if res != nil {
 			return res
 		}
 
-		ctx.handlersIdx++
+		ch.handlersIdx++
 	}
 }

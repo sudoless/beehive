@@ -690,7 +690,8 @@ func TestRouter_ServeHTTP_concreteRouteUnderWildcard(t *testing.T) {
 	}
 }
 
-func TestRouter_ServeHTTP_0alloc(t *testing.T) { //nolint:paralleltest
+// ServeHTTP allocates the request's Context and nothing else; the chain state, the afters array included, is pooled.
+func TestRouter_ServeHTTP_allocs(t *testing.T) { //nolint:paralleltest
 	responder := &noopResponder{}
 	cleanup := func() {}
 
@@ -703,7 +704,7 @@ func TestRouter_ServeHTTP_0alloc(t *testing.T) { //nolint:paralleltest
 			handler: func(_ *Context) Responder { return responder },
 		},
 		{
-			// The pooled Context must keep the afters backing array across requests.
+			// The pooled chain must keep the afters backing array across requests.
 			name: "with after callback",
 			handler: func(ctx *Context) Responder {
 				ctx.After(cleanup)
@@ -727,10 +728,60 @@ func TestRouter_ServeHTTP_0alloc(t *testing.T) { //nolint:paralleltest
 			allocs := testing.AllocsPerRun(100, func() {
 				router.ServeHTTP(w, r)
 			})
-			if allocs != 0 {
-				t.Errorf("expected 0 allocations, got %v", allocs)
+			if allocs != 1 {
+				t.Errorf("expected 1 allocation, the Context, got %v", allocs)
 			}
 		})
+	}
+}
+
+// A goroutine a handler starts may first run after ServeHTTP returns, as database/sql's Rows.awaitDone can; the Context
+// it was handed must still answer as that request's context, even once the router has served another request.
+func TestRouter_ServeHTTP_contextOutlivesRequest(t *testing.T) {
+	t.Parallel()
+
+	type ctxKey struct{}
+
+	type seen struct {
+		value any
+		done  <-chan struct{}
+		err   error
+	}
+
+	start := make(chan struct{})
+	result := make(chan seen, 1)
+
+	router := NewRouter()
+	router.Handle("GET", "/first", func(ctx *Context) Responder {
+		ctx.WithValue(ctxKey{}, "first")
+
+		go func() {
+			<-start
+			result <- seen{value: ctx.Value(ctxKey{}), done: ctx.Done(), err: ctx.Err()}
+		}()
+
+		return &DefaultResponder{Message: "ok", Status: http.StatusOK}
+	})
+	router.Handle("GET", "/second", func(ctx *Context) Responder {
+		ctx.WithValue(ctxKey{}, "second")
+		return &DefaultResponder{Message: "ok", Status: http.StatusOK}
+	})
+
+	first := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/first", nil)
+	router.ServeHTTP(httptest.NewRecorder(), first)
+	router.ServeHTTP(httptest.NewRecorder(), httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/second", nil))
+
+	close(start)
+	got := <-result
+
+	if got.value != "first" {
+		t.Errorf("expected the first request's value %q, got %v", "first", got.value)
+	}
+	if got.done != first.Context().Done() {
+		t.Error("expected the first request's Done channel")
+	}
+	if got.err != nil {
+		t.Errorf("expected no error from a live request context, got %v", got.err)
 	}
 }
 

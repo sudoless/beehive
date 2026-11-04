@@ -14,8 +14,12 @@ project. There is no `make test`, `make fmt` or `make dev-deps`.
 
 ## Invariants
 
-- **`Radix.Get` and `Router.ServeHTTP` allocate nothing.** `TestRadix_Get_0alloc` and
-  `TestRouter_ServeHTTP_0alloc` enforce it. Check them before touching the request path.
+- **`Radix.Get` allocates nothing, and `Router.ServeHTTP` allocates only the request's 48-byte
+  `Context`.** `TestRadix_Get_0alloc` and `TestRouter_ServeHTTP_allocs` enforce it. Check them
+  before touching the request path.
+- **A `Context` is never reused.** It stays a valid `context.Context` after `ServeHTTP` returns, for
+  goroutines that first run late (`database/sql`'s `Rows.awaitDone`);
+  `TestRouter_ServeHTTP_contextOutlivesRequest` enforces it. Only the routing state (`chain`) is pooled.
 - `pkg/beehive` depends on nothing but the standard library, and no `pkg/beehive-*` add-on may
   become a dependency of it.
 - A `Responder`'s `StatusCode` reports what `Respond` wrote. The two disagreeing is a bug.
